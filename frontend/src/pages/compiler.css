@@ -1,0 +1,115 @@
+/* --- Global & Layout Refinements --- */
+body, html {
+  margin: 0;
+  padding: 0;
+  background-color: #f9fafb; /* Light gray background for the page */
+}
+
+/* Custom Scrollbars for a "Developer" look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* --- Form Elements --- */
+select, textarea {
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  border: 1px solid #d1d5db;
+}
+
+select:focus, textarea:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* --- Interactive Buttons --- */
+button {
+  transition: transform 0.1s active, opacity 0.2s;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0px);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --- Monaco Editor Container --- */
+.monaco-editor {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #374151;
+}
+
+/* --- Console & Pre Styles --- */
+pre {
+  font-family: 'Fira Code', 'Cascadia Code', 'Source Code Pro', monospace;
+  line-height: 1.5;
+}
+
+/* --- Result Card Animations --- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.result-item {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* --- Utility Classes for the Right Sidebar --- */
+.tab-button {
+  transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* --- Test Case Styling --- */
+.test-case-container {
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* --- Console "Blink" effect for loading --- */
+.loading-dots:after {
+  content: ' .';
+  animation: dots 1s steps(5, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% { content: ' .'; }
+  40% { content: ' ..'; }
+  60% { content: ' ...'; }
+  80%, 100% { content: ''; }
+}

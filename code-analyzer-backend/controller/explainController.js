@@ -1,0 +1,108 @@
+const pool = require("../config/db");
+const fetch = require("node-fetch");
+
+const explainCode = async (req, res) => {
+  try {
+    const { code, language = 'javascript' } = req.body;
+
+    if (!code.trim()) {
+      return res.status(400).json({ message: "Code required" });
+    }
+
+    // 📊 SIMPLE METRICS
+    const lines = code.split('\n').filter(l => l.trim()).length;
+    const functions = (code.match(/function\s+\w+|=>|def\s+\w+/g) || []).length;
+    const loops = (code.match(/(for|while|forEach)\s*\(/g) || []).length;
+
+    const metrics = {
+      lines,
+      functions: functions || 0,
+      loops: loops || 0,
+      complexity: loops >= 2 ? "O(n²)" : loops === 1 ? "O(n)" : "O(1)"
+    };
+
+    // 🤖 AI - SIMPLE PROMPT
+    let explanation = "Code analysis complete";
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: "deepseek/deepseek-chat",
+          messages: [{
+            role: "user",
+            content: `Give **line-by-line explanation** + **execution flow** + **summary** for this ${language} code:
+
+**CODE:**
+\`\`\`${language}
+${code}
+\`\`\`
+
+Format: Line-by-line → Flow → Summary`
+          }],
+          max_tokens: 1200
+        })
+      });
+
+      const data = await response.json();
+      explanation = data.choices?.[0]?.message?.content || explanation;
+
+    } catch (e) {
+      explanation = `**Line-by-line:** ${lines} lines executed
+**Flow:** ${functions} functions → ${loops} loops
+**Summary:** ${language} code with ${metrics.complexity} complexity`;
+    }
+
+    // ✅ OPTIMIZATION SUGGESTIONS (inside the function)
+    const optimizationSuggestions = [];
+
+    if (lines > 100) {
+      optimizationSuggestions.push("📂 Code is large. Consider breaking into smaller functions.");
+    }
+    if (functions > 5) {
+      optimizationSuggestions.push("⚠️ Too many functions. Try modularizing or grouping related logic.");
+    }
+    if (loops >= 2) {
+      optimizationSuggestions.push("🚨 Nested loops detected. This may cause O(n²) complexity. Optimize using better algorithms.");
+    }
+    if (loops === 1) {
+      optimizationSuggestions.push("💡 Single loop detected. Performance is good (O(n)), but ensure it's necessary.");
+    }
+    if (functions === 0) {
+      optimizationSuggestions.push("⚠️ No functions found. Consider using functions for better structure and reusability.");
+    }
+    if (lines > 50 && functions <= 1) {
+      optimizationSuggestions.push("⚠️ Long function detected. Break into smaller reusable functions.");
+    }
+
+    // 📤 ONLY YOUR 4 FIELDS + optimizationSuggestions
+    res.json({
+      explanation,
+      lineByLine: code.split('\n').map((l, i) => ({ line: i + 1, code: l.trim() })),
+      metrics,
+      summary: `${language} code: ${lines} lines, ${metrics.complexity} time`,
+      optimizationSuggestions
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: "Analysis failed" });
+  }
+};
+
+const getUserCodes = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const result = await pool.query(
+      "SELECT id, file_name, language, status, code FROM code_submissions WHERE user_id = $1 ORDER BY id DESC",
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching codes" });
+  }
+};
+
+module.exports = { explainCode, getUserCodes };

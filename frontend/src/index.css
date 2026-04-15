@@ -1,0 +1,196 @@
+/* ===============================
+   🌟 GLOBAL DESIGN SYSTEM (FIXED)
+================================ */
+
+/* 🔥 RESET (VERY IMPORTANT) */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+/* =============================== */
+
+:root {
+  /* 🎨 BACKGROUND */
+  --bg-main: #F5F7FB;
+  --bg-soft: #EEF1FA;
+  --bg: #FFFFFF;
+
+  /* 🎯 PRIMARY COLORS */
+  --primary: #062181;
+  --secondary: #8F90C7;
+  --accent: #A8A8D8;
+
+  /* 🔥 ACCENTS */
+  --accent-orange: #FF7A45;
+  --accent-blue: #2F5BFF;
+  --accent-teal: #2F8F9D;
+
+  /* 🧊 UI */
+  --card-bg: #FFFFFF;
+  --glass: rgba(255, 255, 255, 0.6);
+  --border: #E6E8EC;
+
+  /* ✍️ TEXT */
+  --text-dark: #2B2D42;
+  --text-light: #6C757D;
+
+  /* 🧱 SHADOW */
+  --shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+
+  /* 🔤 TYPOGRAPHY */
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 18px/1.45 var(--sans);
+  color: var(--text-dark);
+  background: var(--bg-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===============================
+   🌙 DARK MODE
+================================ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-main: #16171d;
+    --bg-soft: #1f2028;
+    --bg: #1f2028;
+
+    --card-bg: #1f2028;
+    --border: #2e303a;
+
+    --text-dark: #f3f4f6;
+    --text-light: #9ca3af;
+
+    --shadow: 0 10px 25px rgba(0,0,0,0.4);
+  }
+}
+
+/* ===============================
+   📦 BASE LAYOUT (FIXED)
+================================ */
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  background: var(--bg-main);
+  overflow-x: hidden; /* ✅ prevents side scroll gap */
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column; /* ✅ IMPORTANT FIX */
+}
+
+/* ===============================
+   🔤 TYPOGRAPHY
+================================ */
+
+h1, h2 {
+  font-family: var(--heading);
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+h1 {
+  font-size: 56px;
+  letter-spacing: -1px;
+  margin: 24px 0; /* ✅ reduced top gap */
+}
+
+h2 {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+p {
+  color: var(--text-light);
+}
+
+/* ===============================
+   💻 CODE BLOCKS
+================================ */
+
+code {
+  font-family: var(--mono);
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--bg-soft);
+  color: var(--text-dark);
+}
+
+/* ===============================
+   🔘 BUTTONS
+================================ */
+
+.button-primary {
+  background: linear-gradient(135deg, #2F5BFF, #6FA8DC);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(47,91,255,0.3);
+}
+
+.button-secondary {
+  background: white;
+  border: 1px solid var(--border);
+  padding: 12px 24px;
+  border-radius: 12px;
+  color: var(--text-dark);
+}
+
+/* ===============================
+   🧊 CARD
+================================ */
+
+.card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+/* ===============================
+   📐 MAIN LAYOUT (FIXED)
+================================ */
+
+.main-content {
+  margin: 0; /* ✅ */
+  width: 100%; /* ✅ */
+  margin-top: 60px;
+  min-height: calc(100vh - 60px);
+  flex: 1; /* ✅ pushes footer down */
+}
+
+.page-content {
+  padding: 20px;
+}
+
+/* ===============================
+   📱 RESPONSIVE
+================================ */
+
+@media (max-width: 1024px) {
+  :root {
+    font-size: 16px;
+  }
+
+  h1 {
+    font-size: 36px;
+  }
+
+  
+}
