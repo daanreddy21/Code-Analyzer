@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 import { io } from "socket.io-client"; // 🔥 ADD HERE
+import EmojiPicker from "emoji-picker-react";
 
 function AdminDashboard() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ function AdminDashboard() {
   const [activeBookmarkMenu, setActiveBookmarkMenu] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
+  const [showEmoji, setShowEmoji] = useState(false);
 
   const socket = React.useMemo(() => io("http://localhost:5000"), []);
   // State to handle the text input for rejection reasons per row
@@ -22,10 +24,18 @@ function AdminDashboard() {
 
   const user = JSON.parse(localStorage.getItem("user"));
 
+
+
+  const onEmojiClick = (emojiData) => {
+  setNewComment((prev) => prev + emojiData.emoji);
+  setShowEmoji(false); // auto close
+};
   useEffect(() => {
   socket.on("new_comment", (comment) => {
     setComments((prev) => [...prev, comment]);
   });
+
+
 
   return () => socket.off("new_comment");
 }, []);
@@ -390,20 +400,71 @@ const addComment = async () => {
 
               {/* ✍️ ADMIN REPLY */}
               <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
-                <input
-                  type="text"
-                  placeholder="Reply to user..."
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: "10px",
-                    borderRadius: "8px",
-                    border: "1px solid #334155",
-                    background: "#1e293b",
-                    color: "#fff"
-                  }}
-                />
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  marginTop: "10px",
+                  position: "relative"
+                }}>
+                  {/* 😊 Emoji Button */}
+                  <button
+                    onClick={() => setShowEmoji(!showEmoji)}
+                    style={{
+                      background: "#1e293b",
+                      color: "white",
+                      border: "none",
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      cursor: "pointer"
+                    }}
+                  >
+                    😊
+                  </button>
+
+                  {/* Input */}
+                  <input
+                    type="text"
+                    placeholder="Type a message..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border: "1px solid #334155",
+                      background: "#1e293b",
+                      color: "#fff"
+                    }}
+                  />
+
+                  {/* Send */}
+                  <button
+                    onClick={addComment}
+                    style={{
+                      background: "#22c55e",
+                      color: "white",
+                      padding: "10px 15px",
+                      borderRadius: "8px",
+                      border: "none",
+                      cursor: "pointer"
+                    }}
+                  >
+                    ➤
+                  </button>
+
+                  {/* 🎉 Emoji Picker */}
+                  {showEmoji && (
+                    <div style={{
+                      position: "absolute",
+                      bottom: "50px",
+                      left: "0",
+                      zIndex: 1000
+                    }}>
+                      <EmojiPicker onEmojiClick={onEmojiClick} />
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={addComment}
                   style={{
