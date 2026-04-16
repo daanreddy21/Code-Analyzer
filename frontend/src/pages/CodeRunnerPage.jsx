@@ -735,7 +735,7 @@ useEffect(() => {
                   <div key={i} style={{
                     ...darkThemeStyles.resultItem,
                     backgroundColor: res.status === "Accepted" ? "#064e3b" : 
-                                    res.status === "Wrong Answer" ? "#7f1d1d" : 
+                                    res.status === "Wrong Answer" ? "#7f1d1d" :  
                                     res.status === "Compilation Error" ? "#7c2d12" : "#991b1b"
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -774,6 +774,24 @@ useEffect(() => {
                       <pre style={{ margin: "4px 0 0 0", background: "#1e293b", padding: "8px", borderRadius: "4px", fontSize: "13px", color: "#e5e7eb" }}>
                         {res.output || "No output"}
                       </pre>
+                      {res.status !== "Accepted" && res.explanation && (
+                      <div style={{
+                        marginTop: "12px",
+                        padding: "12px",
+                        background: "#020617",
+                        border: "1px solid #334155",
+                        borderRadius: "8px",
+                        color: "#f87171",
+                        fontSize: "13px",
+                        lineHeight: "1.5",
+                        whiteSpace: "pre-wrap"
+                      }}>
+                        🤖 AI Explanation:
+                        <div style={{ marginTop: "6px", color: "#e2e8f0" }}>
+                          {res.explanation}
+                        </div>
+                      </div>
+                    )}
                     </div>
                   </div>
                 ))

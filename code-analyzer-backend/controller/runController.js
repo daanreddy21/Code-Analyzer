@@ -1,6 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 const { runInDocker } = require("../utils/dockerRunner");
+const { parseInput } = require("../utils/inputParser");
+const axios = require("axios");
 
 exports.runCode = async (req, res) => {
   const { code, language, testCases } = req.body;
@@ -27,13 +29,46 @@ exports.runCode = async (req, res) => {
     const results = [];
     for (let i = 0; i < testCases.length; i++) {
       const test = testCases[i];
-      const result = await runInDocker(dir, language, test.input || "");
+      const parsedInput = parseInput(test.input);
+
+      const result = await runInDocker(dir, language, parsedInput);;
 
       let status = result.status;
+      let explanation = "✅ Passed";
+
       if (status === "Success" && test.expectedOutput) {
         const actual = result.output.trim();
         const expected = test.expectedOutput.trim();
-        status = actual === expected ? "Accepted" : "Wrong Answer";
+
+        if (actual === expected) {
+          status = "Accepted";
+        } else {
+          status = "Wrong Answer";
+
+          // 🔥 AI CALL HERE
+        try {
+          const aiRes = await axios.post(
+            "http://localhost:5000/api/explain/failure-explanation",
+            {
+              code,
+              input: test.input,
+              expected: test.expectedOutput,
+              output: result.output
+            },
+            {
+              headers: {
+                Authorization: req.headers.authorization
+              },
+              timeout: 30000
+            }
+          );
+
+          explanation = aiRes.data.explanation;
+        } catch (err) {
+          console.error("AI error:", err.response?.status, err.response?.data || err.message);
+          explanation = "❌ AI explanation failed";
+        }
+                    }
       } else if (status === "Success") {
         status = "Run Success";
       }
@@ -45,6 +80,7 @@ exports.runCode = async (req, res) => {
         output: result.output || "",
         status,
         executionTime: result.executionTime || "N/A",
+        explanation   // 🔥 ADD THIS
       });
     }
 

@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const fetch = require("node-fetch");
+const axios = require("axios");
 
 const explainCode = async (req, res) => {
   try {
@@ -47,8 +48,14 @@ Format: Line-by-line → Flow → Summary`
         })
       });
 
-      const data = await response.json();
-      explanation = data.choices?.[0]?.message?.content || explanation;
+const data = await response.json();
+
+if (!response.ok) {
+  console.error("❌ OpenRouter Error:", data);
+  throw new Error("AI failed");
+}
+
+explanation = data.choices?.[0]?.message?.content || explanation;
 
     } catch (e) {
       explanation = `**Line-by-line:** ${lines} lines executed
@@ -105,4 +112,94 @@ const getUserCodes = async (req, res) => {
   }
 };
 
-module.exports = { explainCode, getUserCodes };
+
+
+// 🔥 AI Explanation for Failed Test Case
+const getFailureExplanation = async (req, res) => {
+  try {
+
+    console.log("👉 Using API KEY:", process.env.OPENROUTER_API_KEY?.slice(0, 10));
+
+    const { code, input, expected, output } = req.body;
+
+    if (!code || input === undefined || expected === undefined || output === undefined) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const prompt = `
+        You are an expert coding interviewer.
+
+        Analyze the following:
+
+        CODE:
+        ${code}
+
+        TEST CASE:
+        Input: ${input}
+        Expected Output: ${expected}
+        Actual Output: ${output}
+
+        TASK:
+        1. Identify EXACT reason why test case failed
+        2. Explain mistake in simple words
+        3. Tell what type of error:
+          (logic / edge case / input parsing / performance / formatting / wrong expected output)
+        4. Give hint to fix (DO NOT give full code)
+        5. Mention what kind of inputs will fail because of this mistake
+
+        FORMAT:
+
+        ❌ Reason:
+        ...
+
+        📌 Error Type:
+        ...
+
+        💡 Hint:
+        ...
+
+        ⚠️ Failing Cases:
+        ...
+
+        Keep explanation simple for students.
+        `;
+
+const response = await axios.post(
+  "https://openrouter.ai/api/v1/chat/completions",
+  {
+    model: "deepseek/deepseek-chat",
+    messages: [{ role: "user", content: prompt }],
+    max_tokens: 500
+  },
+  {
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+
+      // 🔥 ADD THIS
+      'HTTP-Referer': 'http://localhost:5173',
+      'X-Title': 'AI Code Analyzer'
+    }
+  }
+);
+
+const explanation =
+  response.data?.choices?.[0]?.message?.content ||
+  "⚠️ AI returned empty response";
+
+    
+
+    res.json({ explanation });
+
+  } catch (err) {
+  console.error("OpenRouter status:", err.response?.status);
+  console.error("OpenRouter data:", err.response?.data || err.message);
+  res.status(500).json({ error: "AI explanation failed" });
+}
+};
+
+module.exports = {
+  explainCode,
+  getUserCodes,
+  getFailureExplanation
+};

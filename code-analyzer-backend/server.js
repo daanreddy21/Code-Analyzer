@@ -155,12 +155,13 @@ app.use((err, req, res, next) => {
 
 // ✅ Socket.IO on the same server that listens on 5000
 const io = require("socket.io")(server, {
-  // 🔥 ADD THIS LINE
   cors: {
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173"],
     methods: ["GET", "POST"],
+    credentials: true
   },
-  
+  transports: ['websocket', 'polling'],  // ✅ Explicit transports
+  allowEIO3: true  // ✅ Allow older Engine.IO v3 clients
 });
 
 global.io = io; 

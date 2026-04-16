@@ -1,0 +1,11 @@
+<script>
+  window.MonacoEnvironment = {
+    getWorkerUrl: function(moduleId, label) {
+      if (label === 'json') return '/vs/loader.js';
+      if (label === 'css' || label === 'scss' || label === 'less') return '/vs/loader.js';
+      if (label === 'html' || label === 'handlebars' || label === 'razor') return '/vs/loader.js';
+      if (label === 'typescript' || label === 'javascript') return '/vs/loader.js';
+      return '/vs/loader.js';
+    }
+  };
+</script>
