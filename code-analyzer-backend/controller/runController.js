@@ -57,7 +57,7 @@ exports.runCode = async (req, res) => {
             },
             {
               headers: {
-                Authorization: req.headers.authorization
+                Authorization: req.headers.authorization || ""
               },
               timeout: 30000
             }

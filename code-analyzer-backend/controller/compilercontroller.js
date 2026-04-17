@@ -43,27 +43,35 @@ exports.getCodes = async (req, res) => {
 
 exports.updateCodeC = async (req, res) => {
   const { id } = req.params;
+  console.log("DEBUG USER:", req.user);
   const { title, language, code } = req.body;
+ const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
   try {
     let result;
 
-    // 🔥 CASE 1: Auto-save (only code)
-    if (!title && !language) {
+    // ✅ AUTO-SAVE (only code)
+    if (title === undefined && language === undefined) {
       result = await pool.query(
         `UPDATE saved_codes 
-         SET code = $1 
-         WHERE id = $2 RETURNING *`,
-        [code, id]
+         SET code = $1, updated_at = NOW()
+         WHERE id = $2 AND user_id = $3
+         RETURNING *`,
+        [code, id, userId]
       );
     } 
-    // 🔥 CASE 2: Manual update (full update)
+    // ✅ FULL UPDATE
     else {
       result = await pool.query(
         `UPDATE saved_codes 
-         SET title = $1, language = $2, code = $3 
-         WHERE id = $4 RETURNING *`,
-        [title, language, code, id]
+         SET title = $1, language = $2, code = $3, updated_at = NOW()
+         WHERE id = $4 AND user_id = $5
+         RETURNING *`,
+        [title, language, code, id, userId]
       );
     }
 

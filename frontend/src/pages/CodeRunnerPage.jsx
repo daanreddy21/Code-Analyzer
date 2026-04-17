@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { useLocation } from "react-router-dom";
 import { useNavigate } from "react-router-dom"; // ✅ Added missing import
 import API from "../services/api";
-import Editor, { loader } from "@monaco-editor/react";
+import Editor from "@monaco-editor/react";
 
 
 function CodeRunnerPage() {
@@ -17,8 +16,6 @@ function CodeRunnerPage() {
   const [mode, setMode] = useState("run");
   const [activeTab, setActiveTab] = useState("testcases");
   const [title, setTitle] = useState("");
-  const location = useLocation();
-  const [currentCodeId, setCurrentCodeId] = useState(null);
   const [prediction, setPrediction] = useState("");
   const [predictLoading, setPredictLoading] = useState(false);
 
@@ -245,62 +242,33 @@ function CodeRunnerPage() {
     }
   };
 
-  
-
+  //
 useEffect(() => {
-  if (location.state) {
-    const data = location.state;
+  const key = `code_${language}`;
+  const saved = localStorage.getItem(key);
 
-    setCode(data.code);
-    setLanguage(data.language);
-    setTitle(data.title);
-    setCurrentCodeId(data.id);
-
-    // ✅ SAVE LAST OPENED FILE
-    localStorage.setItem("lastOpenedCode", JSON.stringify(data));
-
-    // ✅ CLEAR NAV STATE
-    window.history.replaceState({}, document.title);
+  if (saved) {
+    setCode(saved);
   } else {
-    // ✅ RESTORE AFTER REFRESH
-    const saved = localStorage.getItem("lastOpenedCode");
-
-    if (saved) {
-      const data = JSON.parse(saved);
-
-      setCode(data.code);
-      setLanguage(data.language);
-      setTitle(data.title);
-      setCurrentCodeId(data.id);
-    }
+    setCode(getDefaultCode(language));
   }
-}, [location.state]);
 
+  setCustomInput("");
+  setOutput("");
+  setResults([]);
+}, [language]);
+
+
+// 
 useEffect(() => {
-  if (!currentCodeId || !code.trim()) return;
+  const key = `code_${language}`;   // unique per language
 
   const timeout = setTimeout(() => {
-    console.log("🔥 Auto saving ID:", currentCodeId);
-
-    API.put(`/code/${currentCodeId}`, { code })
-      .then(() => console.log("✅ Auto-saved to DB"))
-      .catch(err => console.error("❌ Auto-save error:", err));
-  }, 2000);
-
-  return () => clearTimeout(timeout);
-}, [code, currentCodeId]);
-
-useEffect(() => {
-  const timeout = setTimeout(() => {
-    const key = currentCodeId 
-      ? `autosave_${currentCodeId}` 
-      : `autosave_${language}`;
-
     localStorage.setItem(key, code);
-  }, 500);
+  }, 500); // debounce (avoid too many saves)
 
   return () => clearTimeout(timeout);
-}, [code, language, currentCodeId]);
+}, [code, language]);
 
   // ✅ FIXED MONACO WORKER SETUP
   useEffect(() => {
@@ -321,57 +289,39 @@ useEffect(() => {
   }, [code]);
 
   // ✅ FIXED DEFAULT CODE
-const getDefaultCode = (lang) => {
+  const getDefaultCode = (lang) => {
     if (lang === "java") {
       return `import java.util.*;
-class Main {
-  public static void main(String[] args) {
-    java.util.Scanner sc = new java.util.Scanner(System.in);
-    if (sc.hasNextInt()) {
-      int a = sc.nextInt();
-      if (sc.hasNextInt()) {
-        int b = sc.nextInt();
-        System.out.println(a + b);
-      }
-    }
-  }
-}`;
+        class Main {
+          public static void main(String[] args) {
+            java.util.Scanner sc = new java.util.Scanner(System.in);
+            if (sc.hasNextInt()) {
+              int a = sc.nextInt();
+              if (sc.hasNextInt()) {
+                int b = sc.nextInt();
+                System.out.println(a + b);
+              }
+            }
+          }
+        }`;
     }
     if (lang === "python") {
       return `a, b = map(int, input().split())
-print(a + b)`;
+                        print(a + b)`;
     }
     if (lang === "cpp") {
       return `#include <iostream>
-using namespace std;
-int main() {
-    int a, b;
-    cin >> a >> b;
-    cout << a + b << endl;
-    return 0;
-}`;
+          using namespace std;
+          int main() {
+              int a, b;
+              cin >> a >> b;
+              cout << a + b << endl;
+              return 0;
+          }`;
     }
     return "";
   };
 
-useEffect(() => {
-  // ❌ If editing saved file → don't override
-  if (currentCodeId) return;
-
-  const key = `autosave_${language}`;
-  const saved = localStorage.getItem(key);
-
-  if (saved) {
-    setCode(saved);
-  } else {
-    setCode(getDefaultCode(language));
-  }
-
-  setCustomInput("");
-  setOutput("");
-  setResults([]);
-
-}, [language, currentCodeId]);
 
   const addTestCase = useCallback(() => {
     setTestCases(prev => [...prev, { input: "", expectedOutput: "" }]);
@@ -451,25 +401,7 @@ useEffect(() => {
     }
   }, [code, language, testCases]);
 
-  const saveCodeToDB = async () => {
-  if (!title.trim()) {
-    alert("Please enter a title");
-    return;
-  }
 
-  try {
-    await API.post("/code/save", {
-      title,
-      language,
-      code
-    });
-
-    alert("✅ Code saved successfully!");
-  } catch (err) {
-    console.error(err);
-    alert("❌ Error saving code");
-  }
-};
 
   const getEditorLanguage = () => {
     const map = {
@@ -536,12 +468,7 @@ const predictCode = async () => {
             >
               📚 History
             </button>
-            <button 
-              style={darkThemeStyles.navBtn} 
-              onClick={() => navigate("/saved-codes")}
-            >
-              📂 Saved Codes
-            </button>
+            
             <button 
               style={{...darkThemeStyles.navBtn, ...darkThemeStyles.logoutBtn}} 
               onClick={logout}
@@ -624,19 +551,7 @@ const predictCode = async () => {
               {loading ? "⏳ Testing..." : "✅ Submit Tests"}
             </button>
 
-            <button
-              onClick={saveCodeToDB}
-              style={{
-                padding: "10px 20px",
-                background: "#9333ea",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer"
-              }}
-            >
-              💾 Save Code
-            </button>
+
             <button
               onClick={predictCode}
               disabled={predictLoading}
