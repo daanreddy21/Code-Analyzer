@@ -27,6 +27,8 @@ const reminderRoutes = require("./routes/reminderRoutes");
 const reminderJob = require("./jobs/reminderJob");
 const commentRoutes = require("./routes/commentRoutes");
 
+const predictRoutes = require("./routes/predictRoutes");
+
 
 
 // ✅ Create directories
@@ -140,6 +142,10 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/reminders", reminderRoutes);
 app.use("/api/comments", require("./routes/commentRoutes"));
+app.use("/api/predict", predictRoutes);
+
+
+
 
 
 

@@ -19,6 +19,9 @@ function CodeRunnerPage() {
   const [title, setTitle] = useState("");
   const location = useLocation();
   const [currentCodeId, setCurrentCodeId] = useState(null);
+  const [prediction, setPrediction] = useState("");
+  const [predictLoading, setPredictLoading] = useState(false);
+
 
   const logout = () => {
     localStorage.removeItem('token');
@@ -287,7 +290,7 @@ useEffect(() => {
   return () => clearTimeout(timeout);
 }, [code, currentCodeId]);
 
-  useEffect(() => {
+useEffect(() => {
   const timeout = setTimeout(() => {
     const key = currentCodeId 
       ? `autosave_${currentCodeId}` 
@@ -313,8 +316,12 @@ useEffect(() => {
     }
   }, []);
 
+  useEffect(() => {
+    setPrediction("");
+  }, [code]);
+
   // ✅ FIXED DEFAULT CODE
-  const getDefaultCode = (lang) => {
+const getDefaultCode = (lang) => {
     if (lang === "java") {
       return `import java.util.*;
 class Main {
@@ -483,7 +490,26 @@ useEffect(() => {
     opacity: isDisabled ? 0.6 : 1
   });
 
-  return (
+  
+
+const predictCode = async () => {
+  setPredictLoading(true);
+  try {
+    const res = await API.post("/predict", {
+      code,
+      language
+    });
+
+    setPrediction(res.data.prediction);
+  } catch (err) {
+    alert("Prediction failed");
+  } finally {
+    setPredictLoading(false);
+  }
+};
+
+
+      return (
     <>
       {/* 🔥 PERFECT FIXED HEADER */}
       <header style={darkThemeStyles.header}>
@@ -611,7 +637,39 @@ useEffect(() => {
             >
               💾 Save Code
             </button>
+            <button
+              onClick={predictCode}
+              disabled={predictLoading}
+              style={{
+                padding: "10px 20px",
+                background: "#7c3aed",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer"
+              }}
+            >
+              {predictLoading ? "⏳ Predicting..." : "🔮 Predict Behavior"}
+            </button>
           </div>
+
+          {/* 🔮 AI Prediction (BEFORE RUN) */}
+            {prediction && (
+              <div style={{
+                marginTop: "15px",
+                padding: "15px",
+                background: "#020617",
+                border: "1px solid #334155",
+                borderRadius: "8px",
+                color: "#e2e8f0",
+                whiteSpace: "pre-wrap"
+              }}>
+                🔮 AI Behavior Prediction:
+                <div style={{ marginTop: "10px" }}>
+                  {prediction}
+                </div>
+              </div>
+            )}
 
           {/* Custom Input */}
           <div style={{ marginBottom: "15px" }}>
