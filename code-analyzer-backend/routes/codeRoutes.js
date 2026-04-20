@@ -4,6 +4,8 @@ const router = express.Router();
 const codeController = require("../controller/codeController");
 const authMiddleware = require("../middleware/authMiddleware");
 const { saveCode, getCodes, updateCodeC } = require("../controller/compilercontroller");
+const liveAnalysisController = require("../controller/liveAnalysisController");
+const aiAnalysisController = require("../controller/aiAnalysisController");
 
 const rateLimit = require("express-rate-limit");
 const compilerLimiter = rateLimit({
@@ -29,6 +31,8 @@ router.post("/save", authMiddleware, saveCode);  // Compiler save
 
 // 🔥 3. SPECIFIC ROUTES (before :id)
 router.get("/analyze/:id", authMiddleware, codeController.analyzeCode);
+router.post("/live-analysis", authMiddleware, liveAnalysisController.liveAnalysis);
+router.post("/ai-analysis", authMiddleware, aiAnalysisController.aiAnalyze);
 router.get("/all-versions", authMiddleware, codeController.getAllVersionsGrouped);
 router.get("/versions/:submission_id", authMiddleware, codeController.getCodeVersions);
 router.post("/share/generate", authMiddleware, codeController.generateShareLink);

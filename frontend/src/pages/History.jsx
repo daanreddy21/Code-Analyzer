@@ -1,4 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faCode,
+  faBug,
+  faBolt,
+  faTriangleExclamation,
+  faLightbulb,
+  faShuffle
+} from "@fortawesome/free-solid-svg-icons";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 import RewardCard from "../components/RewardCard";
@@ -25,6 +34,12 @@ function History() {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const socket = useMemo(() => io("http://localhost:5000"), []);
+  const [editMode, setEditMode] = useState(false);
+  const [editedCode, setEditedCode] = useState("");
+  const [originalCode, setOriginalCode] = useState("");
+  const [liveAnalysis, setLiveAnalysis] = useState([]);
+  const [aiAnalysis, setAiAnalysis] = useState([]);
+  const [loadingAI, setLoadingAI] = useState(false);
 
 
   useEffect(() => {
@@ -32,8 +47,20 @@ function History() {
     setComments((prev) => [...prev, comment]);
   });
 
-  return () => socket.off("new_comment");
-}, []);
+      return () => socket.off("new_comment");
+    }, []);
+
+    useEffect(() => {
+  if (!editMode) return;
+
+  const timer = setTimeout(() => {
+    if (editedCode !== originalCode) {
+      runLiveAnalysis(editedCode);
+    }
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [editedCode]);
   
 
  const viewProjectAnalysis = (project) => {
@@ -56,6 +83,7 @@ function History() {
   useEffect(() => {
     fetchData();
   }, []);
+
 
   useEffect(() => {
   if (analysisResult) {
@@ -148,8 +176,7 @@ const undoDelete = async (original_id) => {
 }, []);
 
  // Add this state inside your History component
-const [editMode, setEditMode] = useState(false);
-const [editedCode, setEditedCode] = useState("");
+
 
 // Update your viewCode function
 const viewCode = useCallback(async (id) => {
@@ -160,6 +187,8 @@ const viewCode = useCallback(async (id) => {
 
     setSelectedCode({...res.data, id: id }); 
     setEditedCode(res.data.code);
+    setOriginalCode(res.data.code); // 🔥 ADD THIS
+    setLiveAnalysis([]); // reset
     setEditMode(false);
 
     // 🔥 ADD THIS
@@ -170,6 +199,39 @@ const viewCode = useCallback(async (id) => {
     alert("Failed to load code"); 
   }
 }, []);
+
+// 🔥 NEW: LIVE ANALYSIS FUNCTION
+const runLiveAnalysis = async (newCode) => {
+  try {
+    const res = await API.post("/code/live-analysis", {
+      oldCode: originalCode,
+      newCode: newCode
+    });
+
+    setLiveAnalysis(res.data.analysis);
+  } catch (err) {
+    console.error("Live analysis failed", err);
+  }
+};
+
+const runAIAnalysis = async () => {
+  try {
+    setLoadingAI(true);
+
+    const res = await API.post("/code/ai-analysis", {
+      oldCode: originalCode,
+      newCode: editedCode,
+      language: selectedCode.language
+    });
+
+    setAiAnalysis(res.data.analysis || []);
+
+  } catch (err) {
+    console.error("AI analysis failed", err);
+  } finally {
+    setLoadingAI(false);
+  }
+};
 
 // 🔥 NEW: COMMENT FUNCTION
 const addComment = async () => {
@@ -660,28 +722,183 @@ const copyIssues = useCallback(() => {
                     </div>
                 </div>
                 
-                <div style={{background:'#1e1e2f', padding:'1rem', borderRadius:'16px', border:'1px solid #334155'}}>
-                    {editMode ? (
-                      <textarea
-                        value={editedCode}
-                        onChange={(e) => setEditedCode(e.target.value)}
-                        style={{
-                          width: '100%',
-                          height: '50vh',
-                          background: 'transparent',
-                          color: '#e2e8f0',
-                          border: 'none',
-                          outline: 'none',
-                          fontFamily: 'monospace',
-                          fontSize: '14px',
-                          resize: 'none'
-                        }}
-                      />
-                    ) : (
-                      <div style={{maxHeight:'50vh', overflow:'auto', color:'#e2e8f0', fontFamily:'monospace'}}>
-                          <pre>{selectedCode.code}</pre>
-                      </div>
-                    )}
+                <div style={{ display: "flex", gap: "20px" }}>
+
+                        {/* LEFT - EDITOR */}
+                        <div style={{
+                          width: editMode ? "65%" : "100%",
+                          background: "#1e1e2f",
+                          padding: "1rem",
+                          borderRadius: "16px"
+                        }}>
+                          {editMode ? (
+                            <textarea
+                              value={editedCode}
+                              onChange={(e) => setEditedCode(e.target.value)}
+                              style={{
+                                width: "100%",
+                                height: "50vh",
+                                background: "transparent",
+                                color: "#e2e8f0",
+                                border: "none",
+                                outline: "none",
+                                fontFamily: "monospace"
+                              }}
+                            />
+                          ) : (
+                            <pre style={{ color: "#e2e8f0" }}>{selectedCode.code}</pre>
+                          )}
+                        </div>
+
+                        {/* RIGHT - LIVE ANALYSIS */}
+                        {editMode && (
+                          <div style={{
+                            width: "35%",
+                            background: "#ffffff",
+                            color: "#111",
+                            padding: "15px",
+                            borderRadius: "16px",
+                            overflowY: "auto",
+                            maxHeight: "50vh"
+                          }}>
+                          <h3 style={{
+                            fontSize: "18px",
+                            fontWeight: "700",
+                            borderBottom: "2px solid #000",
+                            paddingBottom: "6px",
+                            marginBottom: "12px"
+                          }}>
+                            <FontAwesomeIcon icon={faShuffle} /> Code Impact Analysis
+                          </h3>
+                          <button
+                            onClick={runAIAnalysis}
+                            style={{
+                              width: "100%",
+                              padding: "8px",
+                              marginBottom: "10px",
+                              background: "#000",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: "8px",
+                              cursor: "pointer"
+                            }}
+                          >
+                            {loadingAI ? "Analyzing..." : "AI Analyze"}
+                          </button>
+
+                            {liveAnalysis.length === 0 ? (
+                              <p style={{ color: "#666" }}>No changes detected</p>
+                            ) : (
+                            liveAnalysis.map((item, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  border: "1px solid #ddd",
+                                  borderLeft:
+                                    item.severity === "CRITICAL"
+                                      ? "5px solid #000"
+                                      : item.severity === "HIGH"
+                                      ? "5px solid #333"
+                                      : item.severity === "MEDIUM"
+                                      ? "5px dashed #000"
+                                      : "5px solid #999",
+                                  padding: "14px",
+                                  marginBottom: "12px",
+                                  borderRadius: "12px",
+                                  background: "#fff"
+                                }}
+                              >
+
+                                {/* HEADER */}
+                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                  <strong>
+                                    <FontAwesomeIcon icon={faCode} /> {item.title || item.type}
+                                  </strong>
+                                  <span style={{
+                                    fontSize: "11px",
+                                    border: "1px solid #000",
+                                    padding: "2px 6px",
+                                    borderRadius: "6px"
+                                  }}>
+                                    {item.severity}
+                                  </span>
+                                </div>
+
+                                <p style={{ fontSize: "12px", color: "#666" }}>
+                                  Line {item.line}
+                                </p>
+
+                                {/* WHAT CHANGED */}
+                                {item.whatChanged && (
+                                  <p style={{ margin: "6px 0" }}>
+                                    <b>What Changed:</b><br />
+                                    {item.whatChanged}
+                                  </p>
+                                )}
+
+                                {/* IMPACT */}
+                                {item.impact && (
+                                  <div style={{ margin: "6px 0" }}>
+                                    <b>Impact:</b>
+                                    <ul style={{ paddingLeft: "18px", marginTop: "4px" }}>
+                                      {item.impact.map((imp, idx) => (
+                                        <li key={idx}>{imp}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {/* SCENARIO */}
+                                {item.scenario && (
+                                  <p style={{ margin: "6px 0" }}>
+                                    <b>Real Scenario:</b><br />
+                                    {item.scenario}
+                                  </p>
+                                )}
+
+                                {/* FIX */}
+                                <p style={{
+                                  marginTop: "8px",
+                                  paddingTop: "6px",
+                                  borderTop: "1px solid #eee"
+                                }}>
+                                  <b>Fix:</b> {item.suggestion}
+                                </p>
+
+                              </div>
+                            ))  
+                            )}
+                            {/* AI ANALYSIS RESULT */}
+{aiAnalysis.length > 0 && (
+  <div style={{ marginTop: "15px" }}>
+    <h4 style={{ marginBottom: "8px" }}>AI Analysis</h4>
+
+    {aiAnalysis.map((item, i) => (
+      <div key={i} style={{
+        border: "1px solid #000",
+        padding: "10px",
+        marginBottom: "10px",
+        borderRadius: "10px"
+      }}>
+        <strong>{item.title}</strong> ({item.severity})
+
+        <p><b>What Changed:</b> {item.whatChanged}</p>
+
+        <ul>
+          {item.impact?.map((imp, idx) => (
+            <li key={idx}>{imp}</li>
+          ))}
+        </ul>
+
+        <p><b>Scenario:</b> {item.scenario}</p>
+        <p><b>Fix:</b> {item.suggestion}</p>
+      </div>
+    ))}
+  </div>
+)}
+                          </div>
+                        )}
+
                 </div>
                 {/* 💬 COMMENTS SECTION */}
                   <div style={{
