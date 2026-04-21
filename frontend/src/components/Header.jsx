@@ -11,15 +11,22 @@ function Header({
   setShowDropdown,
   setShowProjectModal,
   setShowMessages,
+  toggleTheme,   // ✅ FIXED (added)
+  theme          // ✅ FIXED (added)
 }) {
   return (
     <header className="dashboard-header">
       <div className="header-content">
+        
+        {/* LEFT */}
         <div className="header-left">
           <h1>AI Code Analyzer</h1>
         </div>
 
+        {/* RIGHT */}
         <div className="header-right">
+          
+          {/* Home */}
           <button
             className="nav-btn"
             onClick={() => navigate("/dashboard")}
@@ -27,7 +34,7 @@ function Header({
             Home
           </button>
 
-          {/* "Analyze" dropdown */}
+          {/* Analyze Dropdown */}
           <div style={{ position: "relative" }}>
             <button
               className="nav-btn"
@@ -45,8 +52,8 @@ function Header({
                   position: "absolute",
                   top: "40px",
                   left: 0,
-                  background: "#161b22",
-                  border: "1px solid #30363d",
+                  background: "var(--bg)",
+                  border: "1px solid var(--border)",
                   borderRadius: "10px",
                   padding: "10px",
                   minWidth: "200px",
@@ -54,46 +61,23 @@ function Header({
                   boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
                 }}
               >
-                <div
-                  className="dropdown-item"
-                  onClick={() => {
-                    setShowDropdown(false);
-                    navigate("/analyzer");
-                  }}
-                >
+                <div onClick={() => { setShowDropdown(false); navigate("/analyzer"); }}>
                   🔍 Code Analyzer
                 </div>
-                <div
-                  className="dropdown-item"
-                  onClick={() => {
-                    setShowDropdown(false);
-                    navigate("/compare");
-                  }}
-                >
+                <div onClick={() => { setShowDropdown(false); navigate("/compare"); }}>
                   ⚖️ Compare Code
                 </div>
-                <div
-                  className="dropdown-item"
-                  onClick={() => {
-                    setShowDropdown(false);
-                    navigate("/code-runner");
-                  }}
-                >
+                <div onClick={() => { setShowDropdown(false); navigate("/code-runner"); }}>
                   ▶️ Code Runner
                 </div>
-                <div
-                  className="dropdown-item"
-                  onClick={() => {
-                    setShowDropdown(false);
-                    navigate("/explain");
-                  }}
-                >
+                <div onClick={() => { setShowDropdown(false); navigate("/explain"); }}>
                   📄 Explain Files
                 </div>
               </div>
             )}
           </div>
 
+          {/* History */}
           <button
             className="nav-btn"
             onClick={() => navigate("/history")}
@@ -101,6 +85,7 @@ function Header({
             History
           </button>
 
+          {/* Submit */}
           <button
             className="nav-btn highlight"
             onClick={() => setShowProjectModal(true)}
@@ -108,74 +93,49 @@ function Header({
             Submit Project
           </button>
 
-          {/* Notification Bell */}
-          <div className="notification-container" style={{ position: "relative" }}>
+          {/* Notifications */}
+          <div style={{ position: "relative" }}>
             <button
-              className="nav-btn notification-bell"
+              className="nav-btn"
               onClick={() => setShowMessages(true)}
               style={{
-                position: "relative",
-                padding: "8px",
-                background:
-                  unreadCount > 0
-                    ? "#f8514920"
-                    : "transparent",
-                border: "none",
-                outline: "none",
+                background: unreadCount > 0 ? "rgba(248,81,73,0.1)" : "transparent"
               }}
             >
-              <FaBell
-                size={20}
-                style={{
-                  color: unreadCount > 0 ? "#f85149" : "#8b949e",
-                }}
-              />
-
-              {unreadCount > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "-4px",
-                    right: "-4px",
-                    background: "#f85149",
-                    color: "white",
-                    borderRadius: "50%",
-                    width: "20px",
-                    height: "20px",
-                    fontSize: "11px",
-                    fontWeight: "bold",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: "0 2px 8px rgba(248,81,73,0.4)",
-                    pointerEvents: "none",
-                  }}
-                >
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
-              )}
+              <FaBell size={18} />
             </button>
+
+            {unreadCount > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: "-5px",
+                  right: "-5px",
+                  background: "red",
+                  color: "white",
+                  borderRadius: "50%",
+                  fontSize: "10px",
+                  padding: "3px 6px"
+                }}
+              >
+                {unreadCount}
+              </span>
+            )}
           </div>
 
-          {/* Profile button */}
+          {/* Profile */}
           <button
-            className="nav-btn profile-btn"
+            className="nav-btn"
             onClick={() => navigate("/profile")}
           >
             <FaUserCircle size={20} />
           </button>
 
-          {/* Chat button / messages */}
+          {/* Chat */}
           <div style={{ position: "relative" }}>
             <button
               className="nav-btn"
               onClick={() => navigate("/chat")}
-              style={{
-                padding: "8px",
-                background: unread > 0 ? "#0ea5e920" : "transparent",
-                border: "none",
-                outline: "none",
-              }}
             >
               💬
             </button>
@@ -190,17 +150,18 @@ function Header({
                   color: "white",
                   borderRadius: "50%",
                   fontSize: "10px",
-                  padding: "3px 6px",
-                  transform: "scale(0.9)",
-                  fontWeight: "600",
-                  pointerEvents: "none",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                  padding: "3px 6px"
                 }}
               >
                 {unread}
               </span>
             )}
           </div>
+
+          {/* 🌙 THEME TOGGLE (FIXED) */}
+          <button className="nav-btn" onClick={toggleTheme}>
+            {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
+          </button>
 
           {/* Logout */}
           <button
@@ -209,9 +170,7 @@ function Header({
           >
             <FaSignOutAlt size={20} />
           </button>
-          <button className="nav-btn" onClick={toggleTheme}>
-            {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
-          </button>
+
         </div>
       </div>
     </header>

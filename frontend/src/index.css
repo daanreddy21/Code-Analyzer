@@ -1,8 +1,8 @@
 /* ===============================
-   🌟 GLOBAL DESIGN SYSTEM (FIXED)
+   🌟 GLOBAL DESIGN SYSTEM (FINAL)
 ================================ */
 
-/* 🔥 RESET (VERY IMPORTANT) */
+/* 🔥 RESET */
 * {
   margin: 0;
   padding: 0;
@@ -13,82 +13,114 @@ html, body {
   height: 100%;
 }
 
-/* =============================== */
-
+/* ===============================
+   🎨 LIGHT THEME (DEFAULT)
+================================ */
 :root {
-  /* 🎨 BACKGROUND */
   --bg-main: #F5F7FB;
   --bg-soft: #EEF1FA;
   --bg: #FFFFFF;
 
-  /* 🎯 PRIMARY COLORS */
   --primary: #020c30;
   --secondary: #8F90C7;
   --accent: #A8A8D8;
 
-  /* 🔥 ACCENTS */
   --accent-orange: #FF7A45;
   --accent-blue: #021041;
   --accent-teal: #2F8F9D;
 
-  /* 🧊 UI */
   --card-bg: #FFFFFF;
   --glass: rgba(255, 255, 255, 0.6);
   --border: #E6E8EC;
 
-  /* ✍️ TEXT */
   --text-dark: #2B2D42;
   --text-light: #6C757D;
 
-  /* 🧱 SHADOW */
   --shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
 
-  /* 🔤 TYPOGRAPHY */
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --header-bg: rgba(255,255,255,0.9);
+  --footer-bg: #ffffff;
 
-  font: 18px/1.45 var(--sans);
+  font: 18px/1.45 system-ui, 'Segoe UI', Roboto, sans-serif;
   color: var(--text-dark);
   background: var(--bg-main);
-  -webkit-font-smoothing: antialiased;
 }
 
 /* ===============================
-   🌙 DARK MODE
+   🌙 DARK THEME (MANUAL SWITCH)
 ================================ */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-main: #16171d;
-    --bg-soft: #1f2028;
-    --bg: #1f2028;
+body[data-theme="dark"] {
+  --bg-main: #0a0f1e;
+  --bg-soft: #161b22;
+  --bg: #161b22;
 
-    --card-bg: #1f2028;
-    --border: #2e303a;
+  --card-bg: #161b22;
+  --border: #30363d;
 
-    --text-dark: #f3f4f6;
-    --text-light: #9ca3af;
+  --text-dark: #e6edf3;
+  --text-light: #8b949e;
 
-    --shadow: 0 10px 25px rgba(0,0,0,0.4);
-  }
+  --shadow: 0 10px 25px rgba(0,0,0,0.4);
+
+  --header-bg: rgba(22,27,34,0.9);
+  --footer-bg: #0d1117;
 }
 
 /* ===============================
-   📦 BASE LAYOUT (FIXED)
+   📦 BASE LAYOUT
 ================================ */
 
 body {
-  margin: 0;
-  font-family: var(--sans);
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg-main);
-  overflow-x: hidden; /* ✅ prevents side scroll gap */
+  color: var(--text-dark);
+  overflow-x: hidden;
+  transition: all 0.3s ease;
 }
 
 #root {
   width: 100%;
   min-height: 100vh;
   display: flex;
-  flex-direction: column; /* ✅ IMPORTANT FIX */
+  flex-direction: column;
+}
+
+/* ===============================
+   🧱 APP STRUCTURE
+================================ */
+
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* HEADER FIXED */
+.dashboard-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 14px 0;
+  background: var(--header-bg);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  z-index: 1000;
+}
+
+/* MAIN */
+.app-main {
+  padding-top: 80px; /* header height */
+  min-height: calc(100vh - 160px);
+  width: 100%;
+}
+
+/* FOOTER */
+.dashboard-footer {
+  background: var(--footer-bg);
+  border-top: 1px solid var(--border);
+  padding: 30px 0;
+  text-align: center;
 }
 
 /* ===============================
@@ -96,19 +128,17 @@ body {
 ================================ */
 
 h1, h2 {
-  font-family: var(--heading);
   font-weight: 600;
   color: var(--text-dark);
 }
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1px;
-  margin: 24px 0; /* ✅ reduced top gap */
+  font-size: 48px;
+  margin: 20px 0;
 }
 
 h2 {
-  font-size: 24px;
+  font-size: 22px;
   margin-bottom: 8px;
 }
 
@@ -117,11 +147,11 @@ p {
 }
 
 /* ===============================
-   💻 CODE BLOCKS
+   💻 CODE
 ================================ */
 
 code {
-  font-family: var(--mono);
+  font-family: ui-monospace, Consolas, monospace;
   font-size: 14px;
   padding: 4px 8px;
   border-radius: 6px;
@@ -137,17 +167,16 @@ code {
   background: linear-gradient(135deg, #2F5BFF, #6FA8DC);
   color: white;
   border: none;
-  padding: 12px 24px;
-  border-radius: 12px;
+  padding: 12px 20px;
+  border-radius: 10px;
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(47,91,255,0.3);
 }
 
 .button-secondary {
-  background: white;
+  background: var(--bg);
   border: 1px solid var(--border);
-  padding: 12px 24px;
-  border-radius: 12px;
+  padding: 12px 20px;
+  border-radius: 10px;
   color: var(--text-dark);
 }
 
@@ -157,23 +186,15 @@ code {
 
 .card {
   background: var(--card-bg);
-  border-radius: 16px;
+  border-radius: 14px;
   padding: 1.5rem;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
 }
 
 /* ===============================
-   📐 MAIN LAYOUT (FIXED)
+   📐 CONTENT
 ================================ */
-
-.main-content {
-  margin: 0; /* ✅ */
-  width: 100%; /* ✅ */
-  margin-top: 60px;
-  min-height: calc(100vh - 60px);
-  flex: 1; /* ✅ pushes footer down */
-}
 
 .page-content {
   padding: 20px;
@@ -189,8 +210,6 @@ code {
   }
 
   h1 {
-    font-size: 36px;
+    font-size: 32px;
   }
-
-  
 }

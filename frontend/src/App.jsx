@@ -16,6 +16,7 @@ import AdminProfile from "./pages/AdminProfile";
 import AdminStudentProgress from "./pages/AdminStudentProgress";
 import SavedCodesPage from "./pages/SavedCodesPage";
 import SharePage from "./pages/SharePage";
+import Layout from "./components/Layout";
 
 // 🔥 ADD THIS IMPORT
 import ChatPage from "./pages/ChatPage";
@@ -33,6 +34,8 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   return (
+
+
     <BrowserRouter>
       <Routes>
 
