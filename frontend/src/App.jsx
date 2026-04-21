@@ -42,119 +42,37 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         {/* 🔐 Protected Routes */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>}/>
 
-        <Route
-          path="/analyzer"
-          element={
-            <ProtectedRoute>
-              <Analyzer />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/analyzer" element={<ProtectedRoute><Analyzer /></ProtectedRoute>}/>
+          
+        <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>}/>
+          
+        <Route path="/compare" element={<ProtectedRoute><CodeCompare /></ProtectedRoute>}/>    
 
-        <Route
-          path="/history"
-          element={
-            <ProtectedRoute>
-              <History />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/files" element={<ProtectedRoute><FileList /></ProtectedRoute>}/>
 
-        <Route
-          path="/compare"
-          element={
-            <ProtectedRoute>
-              <CodeCompare />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/files"
-          element={
-            <ProtectedRoute>
-              <FileList />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/explain"
-          element={
-            <ProtectedRoute>
-              <ExplainPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/code-runner"
-          element={
-            <ProtectedRoute>
-              <CodeRunnerPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* 🔥 CHAT ROUTE (IMPORTANT FIX) */}
-        <Route
-          path="/chat"
-          element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* 🔑 Admin Route */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/explain" element={<ProtectedRoute><ExplainPage /></ProtectedRoute>}/>
+          
+        <Route path="/code-runner" element={<ProtectedRoute><CodeRunnerPage /></ProtectedRoute>}/>
 
         {/* 👤 Profile Route */}
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/profile"
-          element={
-            <ProtectedRoute>
-              <AdminProfile />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>}/>
 
-        <Route
-          path="/admin/students"
-          element={
-            <ProtectedRoute>
-              <AdminStudentProgress />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/share/:token" element={<SharePage />} />
 
         <Route path="/saved-codes" element={<SavedCodesPage />} />
 
-        <Route path="/share/:token" element={<SharePage />} />
+        {/* 🔥 CHAT ROUTE (IMPORTANT FIX) */}
+        <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>}/>
+          
+        {/* 🔑 Admin Route */}
+        <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>}/>
+          
+        <Route path="/admin/profile" element={<ProtectedRoute><AdminProfile /></ProtectedRoute>}/>
+
+        <Route path="/admin/students" element={<ProtectedRoute><AdminStudentProgress /></ProtectedRoute>}/>
+
 
         {/* ❌ Fallback */}
         <Route path="*" element={<h2>404 - Page Not Found</h2>} />

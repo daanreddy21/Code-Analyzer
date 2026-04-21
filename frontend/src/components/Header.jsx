@@ -209,6 +209,9 @@ function Header({
           >
             <FaSignOutAlt size={20} />
           </button>
+          <button className="nav-btn" onClick={toggleTheme}>
+            {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
+          </button>
         </div>
       </div>
     </header>

@@ -1,59 +1,56 @@
-// src/components/Layout.jsx
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Header from "./Header";
 import Footer from "./Footer";
 
-// ✅ Layout that works only around /dashboard (header + footer fixed)
 function Layout({ children, navigate }) {
-  const [unreadCount, setUnreadCount] = React.useState(0);
-  const [unread, setUnread] = React.useState(0);
-  const [showDropdown, setShowDropdown] = React.useState(false);
-  const [showProjectModal, setShowProjectModal] = React.useState(false);
-  const [showMessages, setShowMessages] = React.useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [unread, setUnread] = useState(0);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [showMessages, setShowMessages] = useState(false);
+
+  // 🌙 THEME STATE
+  const [theme, setTheme] = useState(
+    localStorage.getItem("theme") || "dark"
+  );
+
+  useEffect(() => {
+    document.body.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === "dark" ? "light" : "dark"));
+  };
 
   const logout = () => {
     localStorage.removeItem("token");
-    navigate("/login");
+    navigate("/");
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column"
-      }}
-    >
-      {/* Fixed Header */}
-      <header
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-          background: "#101f4c",
-          borderBottom: "1px solid #30363d"
-        }}
-      >
-        <Header
-          navigate={navigate}
-          unreadCount={unreadCount}
-          unread={unread}
-          logout={logout}
-          showDropdown={showDropdown}
-          setShowDropdown={setShowDropdown}
-          showProjectModal={showProjectModal}
-          setShowProjectModal={setShowProjectModal}
-          showMessages={showMessages}
-          setShowMessages={setShowMessages}
-        />
-      </header>
+    <div className="app-layout">
+      
+      {/* ✅ GLOBAL HEADER */}
+      <Header
+        navigate={navigate}
+        unreadCount={unreadCount}
+        unread={unread}
+        logout={logout}
+        showDropdown={showDropdown}
+        setShowDropdown={setShowDropdown}
+        setShowProjectModal={setShowProjectModal}
+        setShowMessages={setShowMessages}
+        toggleTheme={toggleTheme}   // 🔥 NEW
+        theme={theme}               // 🔥 NEW
+      />
 
-      {/* Scrollable middle content */}
-      <main style={{ flex: 1, overflowY: "auto", padding: "0 20px" }}>
+      {/* ✅ MAIN CONTENT */}
+      <main className="app-main">
         {children}
       </main>
 
-      {/* Fixed Footer */}
+      {/* ✅ GLOBAL FOOTER */}
       <Footer />
     </div>
   );
