@@ -41,6 +41,10 @@ function History() {
   const [aiAnalysis, setAiAnalysis] = useState([]);
   const [loadingAI, setLoadingAI] = useState(false);
 
+  const [versions, setVersions] = useState([]);
+  const [selectedVersion, setSelectedVersion] = useState(null);
+  const token = localStorage.getItem("token");
+
 
   useEffect(() => {
   socket.on("new_comment", (comment) => {
@@ -62,6 +66,22 @@ function History() {
   return () => clearTimeout(timer);
 }, [editedCode]);
   
+const fetchVersions = async (id) => {
+  try {
+    const res = await API.get(`/code/timeline/${id}`);
+
+    const fixedData = res.data.map(v => ({
+      ...v,
+      issues: typeof v.issues === "string" ? JSON.parse(v.issues) : v.issues
+    }));
+
+    setVersions(fixedData);
+    setSelectedVersion(fixedData[0]);
+
+  } catch (err) {
+    console.error("Fetch versions failed:", err);
+  }
+};
 
  const viewProjectAnalysis = (project) => {
   console.log("Analyze clicked for project:", project.title);
@@ -275,19 +295,25 @@ const handleSave = async () => {
   }
 };
 
-  const analyzeCode = useCallback(async (id) => {
-    try {
-      setIsAnalyzing(true);
-      setAnalysisResult(null); // Clear previous results
-      const res = await API.get(`/code/analyze/${id}`);
-      setAnalysisResult(res.data);
-    } catch (err) { 
-      console.error("Analysis failed:", err);
-      alert("Analysis failed: " + (err.response?.data?.error || err.message));
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }, []);
+    const analyzeCode = useCallback(async (id) => {
+      try {
+        setIsAnalyzing(true);
+        setAnalysisResult(null); // Clear previous results
+
+        // 🔥 STEP 1: RUN ANALYSIS
+        const res = await API.get(`/code/analyze/${id}`);
+        setAnalysisResult(res.data);
+
+        // 🔥 STEP 2: FETCH ALL VERSIONS (IMPORTANT)
+        await fetchVersions(id);
+
+      } catch (err) { 
+        console.error("Analysis failed:", err);
+        alert("Analysis failed: " + (err.response?.data?.error || err.message));
+      } finally {
+        setIsAnalyzing(false);
+      }
+    }, []);
 
   const downloadFile = useCallback(async (id) => {
     try {
@@ -472,30 +498,25 @@ const copyIssues = useCallback(() => {
         </div>
       </header>
 
-      <div style={{display:'flex', justifyContent:'space-between', marginBottom:'2rem'}}>
-  <h2>📋 Submission History</h2>
-  <div style={{display:'flex', gap:'10px'}}>
-    <select onChange={(e)=>setLanguageFilter(e.target.value)} /*...*/> </select>
-    <button 
-      onClick={() => {
-        setShowDeleted(!showDeleted);
-        if (!showDeleted) fetchDeleted();  // Load on first click
-      }}
-      style={{
-        background: showDeleted ? '#ef4444' : '#6b7280',
-        color: 'white', padding: '10px 16px', borderRadius: '10px',
-        border: 'none', cursor: 'pointer', fontWeight: '600'
-      }}
-    >
-      {showDeleted ? '🗑️ Active Files' : '🗑️ Deleted Files'}
-    </button>
-  </div>
-</div>
+      
 
       {/* --- CODE HISTORY --- */}
       <div style={cardStyle}>
         <div style={{display:'flex', justifyContent:'space-between', marginBottom:'2rem'}}>
           <h2>📋 Submission History</h2>
+           <button 
+              onClick={() => {
+                setShowDeleted(!showDeleted);
+                if (!showDeleted) fetchDeleted();  // Load on first click
+              }}
+              style={{
+                background: showDeleted ? '#ef4444' : '#6b7280',
+                color: 'white', padding: '10px 16px', borderRadius: '10px',
+                border: 'none', cursor: 'pointer', fontWeight: '600'
+              }}
+            >
+              {showDeleted ? '🗑️ Active Files' : '🗑️ Deleted Files'}
+            </button>
           <select onChange={(e)=>setLanguageFilter(e.target.value)} style={{background:'#1a202c', color:'white', padding:'10px', borderRadius:'10px'}}>
             <option value="">All Languages</option>
             <option value="Java">Java</option>
@@ -978,9 +999,37 @@ const copyIssues = useCallback(() => {
                 <p style={{ color: '#64748b', margin: '4px 0 0 0' }}>Score calculated based on security and best practices</p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '28px', fontWeight: '900', color: analysisResult.score > 70 ? '#16a34a' : '#ef4444' }}>{analysisResult.score}/100</div>
-                  <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>FINAL QUALITY SCORE</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+
+                  {/* 🔥 VERSION DROPDOWN */}
+                  <select
+                    value={selectedVersion?.version || ""}
+                    onChange={(e) => {
+                      const v = versions.find(v => v.version == e.target.value);
+                      setSelectedVersion(v);
+                    }}
+                    style={{
+                      padding: "8px",
+                      borderRadius: "10px",
+                      border: "1px solid #ccc"
+                    }}
+                  >
+                    {versions.map(v => (
+                      <option key={v.version} value={v.version}>
+                        Version {v.version}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* SCORE */}
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '28px', fontWeight: '900', color: '#16a34a' }}>
+                      {selectedVersion?.score || analysisResult.score}/100
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>
+                      FINAL QUALITY SCORE
+                    </div>
+                  </div>
                 </div>
                 <button onClick={() => setAnalysisResult(null)} style={{ background: '#f1f5f9', border: 'none', padding: '10px 15px', borderRadius: '12px', cursor: 'pointer', fontSize: '20px' }}>×</button>
               </div>
@@ -993,7 +1042,7 @@ const copyIssues = useCallback(() => {
               <div style={{ flex: 1.2, background: '#1e1e1e', padding: '20px', overflow: 'auto' }}>
                 <div style={{ color: '#858585', fontSize: '12px', marginBottom: '10px', fontWeight: 'bold' }}>SOURCE CODE PREVIEW</div>
                 <pre style={{ margin: 0, color: '#d4d4d4', fontFamily: 'monospace', fontSize: '14px', lineHeight: '1.6' }}>
-                  <code>{analysisResult.code}</code>
+                  <code>{selectedVersion?.code || analysisResult.code}</code>
                 </pre>
                 {/* 🏆 FILE REWARD */}
                   {analysisResult.rewards && (
@@ -1009,7 +1058,7 @@ const copyIssues = useCallback(() => {
               <div style={{ flex: 1, padding: '25px', overflowY: 'auto', background: '#fff', borderLeft: '1px solid #e2e8f0' }}>
                 <h3 style={{ color: '#1e293b', marginTop: 0 }}>Detected Issues ({analysisResult.issues.length})</h3>
                 
-                {analysisResult.issues.map((issue, idx) => (
+                {(selectedVersion?.issues || analysisResult.issues).map((issue, idx) => (
                   <div key={idx} style={{ marginBottom: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                     <div style={{ padding: '12px 16px', background: issue.type === 'CRITICAL' ? '#fef2f2' : '#fffbeb', borderLeft: `6px solid ${issue.type === 'CRITICAL' ? '#ef4444' : '#f59e0b'}`, display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{issue.title}</span>

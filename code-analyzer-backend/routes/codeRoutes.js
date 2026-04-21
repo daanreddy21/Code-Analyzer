@@ -3,7 +3,7 @@ const router = express.Router();
 
 const codeController = require("../controller/codeController");
 const authMiddleware = require("../middleware/authMiddleware");
-const { saveCode, getCodes, updateCodeC } = require("../controller/compilercontroller");
+const { saveCode, getCodes} = require("../controller/compilercontroller");
 const liveAnalysisController = require("../controller/liveAnalysisController");
 const aiAnalysisController = require("../controller/aiAnalysisController");
 
@@ -32,6 +32,7 @@ router.post("/save", authMiddleware, saveCode);  // Compiler save
 // 🔥 3. SPECIFIC ROUTES (before :id)
 router.get("/analyze/:id", authMiddleware, codeController.analyzeCode);
 router.post("/live-analysis", authMiddleware, liveAnalysisController.liveAnalysis);
+router.get("/timeline/:id", authMiddleware, codeController.getFileAnalysisTimeline);
 router.post("/ai-analysis", authMiddleware, aiAnalysisController.aiAnalyze);
 router.get("/all-versions", authMiddleware, codeController.getAllVersionsGrouped);
 router.get("/versions/:submission_id", authMiddleware, codeController.getCodeVersions);
@@ -41,13 +42,13 @@ router.get("/deleted", authMiddleware, codeController.getDeletedCodes);
 router.post("/deleted/:original_id/undo", authMiddleware, codeController.undoDelete);
 
 // 🔥 4. COMPILER UPDATE FIRST (CRITICAL!)
-router.put("/:id", authMiddleware, updateCodeC);  // ✅ CodeRunnerPage autosave
+// 🔥 4. UPDATE
+router.put("/:id", authMiddleware, codeController.updateCode);
 
-// 🔥 5. CODE CONTROLLER ROUTES
-router.put("/code/:id", authMiddleware, codeController.updateCode);  // Specific path
+// 🔥 5. DELETE
 router.delete("/:id", authMiddleware, codeController.softDeleteCode);
 
-// 🔥 6. GENERIC :id LAST
+// 🔥 6. GENERIC GET (ALWAYS LAST)
 router.get("/:id", authMiddleware, codeController.getCodeById);
 
 module.exports = router;

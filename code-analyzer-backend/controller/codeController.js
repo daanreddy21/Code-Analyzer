@@ -615,20 +615,31 @@ exports.analyzeCode = async (req, res) => {
 
     // 📊 Insert history
 
-        await pool.query(
-      `INSERT INTO code_analysis_history
-      (submission_id, user_id, score, bug_count, issues, suggestions, metrics)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [
-        id,
-        userId,
-        Math.max(0, Math.round(score)),
-        issues.length,
-        JSON.stringify(issues),
-        JSON.stringify(issues.map(i => i.suggestion)),
-        JSON.stringify(metrics)
-      ]
-    );
+      // 🔥 STEP 1: Get current version
+      const versionRes = await pool.query(
+        "SELECT COUNT(*) FROM code_analysis_history WHERE submission_id = $1",
+        [id]
+      );
+
+      const version = parseInt(versionRes.rows[0].count) + 1;
+
+      // 📊 STEP 2: Insert with version
+     await pool.query(
+        `INSERT INTO code_analysis_history
+        (submission_id, user_id, version, score, bug_count, issues, suggestions, metrics, code)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [
+          id,
+          userId,
+          version,
+          Math.max(0, Math.round(score)),
+          issues.length,
+          JSON.stringify(issues),
+          JSON.stringify(issues.map(i => i.suggestion)),
+          JSON.stringify(metrics),
+          code   // 🔥 ADD THIS
+        ]
+      );
 
     // Apply rewards
     const rewardData = await applyRewards(
@@ -665,6 +676,34 @@ ${issue.suggestion}`;
     });
   } catch (err) {
     console.error("analyzeCode error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// 🔥 FILE-WISE TIMELINE
+exports.getFileAnalysisTimeline = async (req, res) => {
+  try {
+    const submissionId = req.params.id;
+    const userId = req.userId;
+
+    const result = await pool.query(
+      `SELECT 
+        version,
+        score,
+        bug_count,
+        issues,
+        metrics,
+        code,
+        created_at
+      FROM code_analysis_history
+      WHERE submission_id = $1 AND user_id = $2
+      ORDER BY version DESC`,
+      [submissionId, userId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Timeline error:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -1099,6 +1138,7 @@ module.exports = {
   getDashboardStats: exports.getDashboardStats,
   getRecentScans: exports.getRecentScans,
   analyzeCode: exports.analyzeCode,
+  getFileAnalysisTimeline: exports.getFileAnalysisTimeline,
   getRecurringIssues: exports.getRecurringIssues,   // ✅ add this
   getAISuggestions: exports.getAISuggestions,  
   getCodeVersions: exports.getCodeVersions,
