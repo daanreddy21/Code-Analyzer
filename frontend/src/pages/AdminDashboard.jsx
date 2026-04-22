@@ -1,343 +1,439 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
-import { io } from "socket.io-client"; // 🔥 ADD HERE
+import { io } from "socket.io-client";
 import EmojiPicker from "emoji-picker-react";
+import { useTheme } from "../context/ThemeContext";
 
 function AdminDashboard() {
   const navigate = useNavigate();
+  const { themeColors, theme } = useTheme();
 
   const [submissions, setSubmissions] = useState([]);
   const [selectedCode, setSelectedCode] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending");
-  const [unread, setUnread] = useState(0); // chat unread
-  const [notifUnread, setNotifUnread] = useState(0); // notifications
-  const [activeBookmarkMenu, setActiveBookmarkMenu] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const [showEmoji, setShowEmoji] = useState(false);
+  const [rejectReasons, setRejectReasons] = useState({});
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
 
   const socket = React.useMemo(() => io("http://localhost:5000"), []);
-  // State to handle the text input for rejection reasons per row
-  const [rejectReasons, setRejectReasons] = useState({});
 
   const user = JSON.parse(localStorage.getItem("user"));
 
-
-
   const onEmojiClick = (emojiData) => {
-  setNewComment((prev) => prev + emojiData.emoji);
-  setShowEmoji(false); // auto close
-};
-  useEffect(() => {
-  socket.on("new_comment", (comment) => {
-    setComments((prev) => [...prev, comment]);
-  });
-
-
-
-  return () => socket.off("new_comment");
-}, []);
-
-useEffect(() => {
-  const fetchCounts = async () => {
-    try {
-      const chatRes = await API.get("/chat/unread");
-      setUnread(chatRes.data.unread);
-
-      const notifRes = await API.get("/notifications/unread");
-      setNotifUnread(notifRes.data.unread);
-    } catch (err) {
-      console.error(err);
-    }
+    setNewComment((prev) => prev + emojiData.emoji);
+    setShowEmoji(false);
   };
 
-  fetchCounts();
-  const interval = setInterval(fetchCounts, 8000);
+  useEffect(() => {
+    socket.on("new_comment", (comment) => {
+      setComments((prev) => [...prev, comment]);
+    });
+    return () => socket.off("new_comment");
+  }, [socket]);
 
-  return () => clearInterval(interval);
-}, []);
-
-  // 🔒 Protect admin route
   useEffect(() => {
     if (!user || user.role !== "admin") {
       navigate("/dashboard");
     }
   }, [user, navigate]);
 
-  // 🔹 Fetch submissions based on filter
-const fetchSubmissions = async (status) => {
-  try {
-    setLoading(true);
-
-    let url = `/admin/submissions?status=${status}`;
-
-    if (status === "bookmarks") {
-      url = `/admin/submissions?bookmarked=true`;
+  const fetchSubmissions = async (status) => {
+    try {
+      setLoading(true);
+      let url = `/admin/submissions?status=${status}`;
+      if (status === "bookmarks") {
+        url = `/admin/submissions?bookmarked=true`;
+      }
+      const res = await API.get(url);
+      setSubmissions(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-
-    const res = await API.get(url);
-    setSubmissions(res.data);
-
-  } catch (err) {
-    console.error(err);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-// 🔹 Toggle user notifications
-const toggleNotifications = async (userId) => {
-  try {
-    await API.put(`/admin/users/${userId}/notifications`);
-    alert("🔔 Notification settings updated!");
-    fetchSubmissions(filter); // Refresh table
-  } catch (err) {
-    console.error(err);
-    alert("Failed to update");
-  }
-};
+  };
 
   useEffect(() => {
     fetchSubmissions(filter);
   }, [filter]);
 
-   const logout = () => {
-    localStorage.removeItem("token");
-    navigate("/");
-  };  
+  const handleView = async (id) => {
+    try {
+      const res = await API.get(`/admin/submission/${id}`);
+      socket.emit("join_submission", id);
 
-  // 🔹 View code
-const handleView = async (id) => {
-  try {
-    const res = await API.get(`/admin/submission/${id}`);
+      setSelectedCode({ ...res.data, id });
 
-    socket.emit("join_submission", id); // 🔥 ADD HERE
+      const commentRes = await API.get(`/comments/${id}`);
+      setComments(commentRes.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-    setSelectedCode({
-      ...res.data,
-      id: id   // 🔥 ensures id always exists
-    });
+  const addComment = async () => {
+    if (!newComment.trim()) return;
+    try {
+      await API.post("/comments", {
+        submissionId: selectedCode.id,
+        comment: newComment,
+      });
+      setNewComment("");
+      const res = await API.get(`/comments/${selectedCode.id}`);
+      setComments(res.data);
+    } catch {
+      alert("Failed to add comment");
+    }
+  };
 
-    // 🔥 ADD THIS
-    const commentRes = await API.get(`/comments/${id}`);
-    setComments(commentRes.data);
-
-  } catch (err) {
-    console.error(err);
-  }
-};
-
-// 🔥 NEW: COMMENT FUNCTION
-const addComment = async () => {
-  if (!newComment.trim()) return;
-
-  console.log("ADMIN sending ID:", selectedCode.id);
-
-  try {
-    await API.post("/comments", {
-      submissionId: selectedCode.id, // ✅ FIXED
-      comment: newComment
-    });
-
-    setNewComment("");
-
-    const res = await API.get(`/comments/${selectedCode.id}`);
-    setComments(res.data);
-
-  } catch (err) {
-    alert("Failed to add comment");
-  }
-};
-
-  // 🔹 Approve
   const handleApprove = async (id) => {
     try {
       await API.put(`/admin/approve/${id}`);
-      alert("✅ Approved!");
       fetchSubmissions(filter);
     } catch (err) {
-      console.error(err);
+      alert("Failed to approve submission");
     }
   };
 
-  // 🔹 Reject
   const handleReject = async (id) => {
     const reason = rejectReasons[id];
-
-    if (!reason || reason.trim() === "") {
-      alert("Please enter a rejection reason");
-      return;
-    }
-
+    if (!reason) return alert("Enter rejection reason");
     try {
       await API.put(`/admin/reject/${id}`, { reason });
-      alert("❌ Rejected!");
-      setRejectReasons({ ...rejectReasons, [id]: "" });
       fetchSubmissions(filter);
     } catch (err) {
-      console.error(err);
+      alert("Failed to reject submission");
     }
   };
 
-  // --- STYLES ---
-  const containerStyle = { minHeight: "100vh", paddingTop: "120px", display: "flex", flexDirection: "column", background: "#0a0f1e", color: "#fff", fontFamily: "'Inter', sans-serif" };
-  const cardStyle = { background: "rgba(255, 255, 255, 0.05)", backdropFilter: "blur(20px)", borderRadius: "24px", padding: "2.5rem", boxShadow: "0 25px 50px rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", maxWidth: "1300px", margin: "0 auto 80px auto", width: "95%" };
-  const tableStyle = { width: "100%", borderCollapse: "separate", borderSpacing: "0 10px" };
-  const tdStyle = { padding: "18px 20px", background: "rgba(255, 255, 255, 0.03)", color: "#e2e8f0" };
-  const filterBtn = (active) => ({ padding: "10px 20px", borderRadius: "8px", border: "none", cursor: "pointer", background: active ? "linear-gradient(135deg, #00c6ff, #0072ff)" : "rgba(255,255,255,0.1)", color: "white", fontWeight: "600", marginRight: "10px", transition: "0.3s" });
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'approved': return themeColors.success;
+      case 'rejected': return themeColors.danger;
+      case 'pending': return themeColors.warning;
+      default: return themeColors.textSecondary;
+    }
+  };
+
+  const getStatusBadgeStyle = (status) => ({
+    display: 'inline-block',
+    padding: '4px 12px',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600',
+    backgroundColor: getStatusColor(status) + '20',
+    color: getStatusColor(status),
+    border: `1px solid ${getStatusColor(status)}40`
+  });
+
+  const filteredSubmissions = submissions.filter(sub => {
+    if (!sub) return false;
+    const fileName = (sub.file_name || "").toLowerCase();
+    const search = (searchTerm || "").toLowerCase();
+    return fileName.includes(search);
+  });
+
+  const sortedSubmissions = [...filteredSubmissions].sort((a, b) => {
+    if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at);
+    if (sortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
+    return 0;
+  });
+
+  // Styles using themeColors
+  const containerStyle = {
+    minHeight: "100vh",
+    padding: "40px 20px",
+    background: themeColors.background,
+    color: themeColors.textPrimary,
+  };
+
+  const cardStyle = {
+    background: themeColors.cardBg,
+    borderRadius: "20px",
+    padding: "30px",
+    border: `1px solid ${themeColors.border}`,
+    boxShadow: theme === "dark" ? "0 10px 30px rgba(0,0,0,0.3)" : "0 10px 30px rgba(0,0,0,0.1)",
+    maxWidth: "1400px",
+    margin: "0 auto",
+  };
+
+  const filterBtn = (active) => ({
+    padding: "10px 18px",
+    borderRadius: "10px",
+    border: "none",
+    background: active ? `linear-gradient(135deg, ${themeColors.accent}, #4c51bf)` : themeColors.bgInner,
+    color: active ? "#fff" : themeColors.textSecondary,
+    cursor: "pointer",
+    marginRight: "10px",
+    marginBottom: "10px",
+    fontWeight: "500",
+    transition: "all 0.3s ease",
+  });
+
+  const modalOverlayStyle = {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: "rgba(0,0,0,0.9)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+    backdropFilter: "blur(5px)",
+  };
+
+  const modalContentStyle = {
+    background: themeColors.cardBg,
+    borderRadius: "20px",
+    padding: "30px",
+    width: "90%",
+    maxWidth: "900px",
+    maxHeight: "80vh",
+    overflow: "auto",
+    position: "relative",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+    border: `1px solid ${themeColors.border}`,
+  };
+
+  const buttonStyle = {
+    primary: {
+      background: `linear-gradient(135deg, ${themeColors.accent}, #4c51bf)`,
+      color: "white",
+      border: "none",
+      padding: "8px 16px",
+      borderRadius: "8px",
+      cursor: "pointer",
+      margin: "0 4px",
+      transition: "transform 0.2s",
+    },
+    secondary: {
+      background: themeColors.bgInner,
+      color: themeColors.textPrimary,
+      border: `1px solid ${themeColors.border}`,
+      padding: "8px 16px",
+      borderRadius: "8px",
+      cursor: "pointer",
+      margin: "0 4px",
+    },
+    danger: {
+      background: `linear-gradient(135deg, ${themeColors.danger}, #dc2626)`,
+      color: "white",
+      border: "none",
+      padding: "8px 16px",
+      borderRadius: "8px",
+      cursor: "pointer",
+      margin: "0 4px",
+    },
+    success: {
+      background: `linear-gradient(135deg, ${themeColors.success}, #059669)`,
+      color: "white",
+      border: "none",
+      padding: "8px 16px",
+      borderRadius: "8px",
+      cursor: "pointer",
+      margin: "0 4px",
+    },
+  };
 
   return (
     <div style={containerStyle}>
-      <style>{`
-        .dashboard-header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; padding: 14px 0; background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
-        .header-content { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
-        .nav-btn { background: transparent; color: #cbd5e0; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; }
-        .nav-btn:hover { background: rgba(255,255,255,0.1); color: white; }
-        .dashboard-footer { background: #070b14; border-top: 1px solid rgba(255,255,255,0.1); padding: 50px 0 20px 0; margin-top: auto; }
-      `}</style>
-
-      {/* HEADER */}
-      <header className="dashboard-header">
-        <div className="header-content">
-          <div className="header-left"><h1>🛠 Admin Control</h1></div>
-         <div className="header-right" style={{ display: "flex", gap: "15px", alignItems: "center" }}>
-
-            {/* 💬 CHAT */}
-            <div style={{ position: "relative" }}>
-              <button className="nav-btn" onClick={() => navigate("/chat")}>
-                💬 Chat-M
-              </button>
-
-              {unread > 0 && (
-                <span style={{
-                  position: "absolute",
-                  top: "-5px",
-                  right: "-5px",
-                  background: "#22c55e",
-                  color: "white",
-                  borderRadius: "50%",
-                  fontSize: "10px",
-                  padding: "3px 6px"
-                }}>
-                  {unread}
-                </span>
-              )}
-            </div>
-          <button className="nav-btn" onClick={() => navigate("/admin/students")}>
-             Students
-          </button>
-
-            {/* 👤 PROFILE */}
-            <button className="nav-btn" onClick={() => navigate("/admin/profile")}>
-              👤 Profile
-            </button>
-
-            {/* 🚪 LOGOUT */}
-            <button 
-              className="nav-btn logout" 
-              onClick={logout} 
-              style={{ color: '#ff4d4d' }}
-            >
-              Logout
-            </button>
-
+      {/* Header */}
+      <div style={{ maxWidth: "1300px", margin: "0 auto 30px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "20px" }}>
+          <div>
+            <h1 style={{ 
+              color: themeColors.textPrimary, 
+              fontSize: "2.5rem", 
+              margin: "0 0 10px 0",
+              background: `linear-gradient(135deg, ${themeColors.accent}, #4c51bf)`,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}>
+              Admin Dashboard
+            </h1>
+            <p style={{ color: themeColors.textSecondary, margin: 0 }}>
+              Welcome back, {user?.name || "Admin"}! Manage and review code submissions
+            </p>
           </div>
         </div>
-      </header>
+      </div>
 
+      {/* Stats Cards */}
+      <div style={{
+        maxWidth: "1400px",
+        margin: "0 auto 30px",
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+        gap: "20px"
+      }}>
+        <StatCard 
+          icon="📊" 
+          title="Total Submissions" 
+          value={submissions.length} 
+          color={themeColors.accent}
+          themeColors={themeColors}
+          theme={theme}
+        />
+        <StatCard 
+          icon="⏳" 
+          title="Pending" 
+          value={submissions.filter(s => s.status === "pending").length} 
+          color={themeColors.warning}
+          themeColors={themeColors}
+          theme={theme}
+        />
+        <StatCard 
+          icon="✅" 
+          title="Approved" 
+          value={submissions.filter(s => s.status === "approved").length} 
+          color={themeColors.success}
+          themeColors={themeColors}
+          theme={theme}
+        />
+        <StatCard 
+          icon="❌" 
+          title="Rejected" 
+          value={submissions.filter(s => s.status === "rejected").length} 
+          color={themeColors.danger}
+          themeColors={themeColors}
+          theme={theme}
+        />
+      </div>
+
+      {/* Main Card */}
       <div style={cardStyle}>
-        <h2 style={{ marginBottom: "20px" }}>Submissions Management</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "15px" }}>
+          <h2 style={{ margin: 0, color: themeColors.textPrimary }}>Submissions Manager</h2>
+          
+          {/* Search and Sort */}
+          <div style={{ display: "flex", gap: "10px" }}>
+            <input
+              type="text"
+              placeholder="🔍 Search by filename..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                padding: "8px 12px",
+                borderRadius: "8px",
+                border: `1px solid ${themeColors.border}`,
+                background: themeColors.bgInner,
+                color: themeColors.textPrimary,
+              }}
+            />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{
+                padding: "8px 12px",
+                borderRadius: "8px",
+                border: `1px solid ${themeColors.border}`,
+                background: themeColors.bgInner,
+                color: themeColors.textPrimary,
+              }}
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+            </select>
+          </div>
+        </div>
 
-        {/* FILTER TABS */}
-        <div style={{ marginBottom: "30px" }}>
+        {/* Filters */}
+        <div style={{ marginBottom: "25px", display: "flex", flexWrap: "wrap", gap: "10px" }}>
           {["pending", "approved", "rejected", "all", "bookmarks"].map((f) => (
             <button key={f} onClick={() => setFilter(f)} style={filterBtn(filter === f)}>
-              {f === "bookmarks" ? "⭐ Bookmarks" : f.charAt(0).toUpperCase() + f.slice(1)}
+              {f.charAt(0).toUpperCase() + f.slice(1)}
             </button>
           ))}
         </div>
 
+        {/* Content */}
         {loading ? (
-          <p style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Loading Submissions...</p>
-        ) : submissions.length === 0 ? (
-          <div style={{textAlign: 'center', padding: '40px', color: '#94a3b8'}}>🎉 No submissions found for this filter.</div>
+          <div style={{ textAlign: "center", padding: "60px" }}>
+            <div style={{ 
+              width: "50px", 
+              height: "50px", 
+              border: `3px solid ${themeColors.accent}30`,
+              borderTop: `3px solid ${themeColors.accent}`,
+              borderRadius: "50%",
+              margin: "0 auto 20px",
+              animation: "spin 1s linear infinite"
+            }} />
+            <p style={{ color: themeColors.textSecondary }}>Loading submissions...</p>
+          </div>
+        ) : sortedSubmissions.length === 0 ? (
+          <div style={{
+            textAlign: "center",
+            padding: "60px",
+            color: themeColors.textSecondary
+          }}>
+            <div style={{ fontSize: "3rem", marginBottom: "20px" }}>📭</div>
+            <h3 style={{ color: themeColors.textPrimary }}>No submissions found</h3>
+            <p>Try switching filters or wait for new uploads</p>
+          </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={tableStyle}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ color: "#94a3b8", textAlign: "left" }}>
-                  <th style={{ padding: "0 20px" }}>File & User</th>
-                  <th>Language</th>
-                  <th>Status</th>
-                  {/* 🔥 REJECTION REASON HEADER */}
-                  {filter === "rejected" && <th>Rejection Reason</th>}
-                  <th style={{ textAlign: "center" }}>Actions</th>
+                <tr style={{ borderBottom: `1px solid ${themeColors.border}` }}>
+                  <th style={{ textAlign: "left", padding: "12px", color: themeColors.textSecondary }}>File Name</th>
+                  <th style={{ textAlign: "left", padding: "12px", color: themeColors.textSecondary }}>Status</th>
+                  <th style={{ textAlign: "left", padding: "12px", color: themeColors.textSecondary }}>Submitted By</th>
+                  <th style={{ textAlign: "left", padding: "12px", color: themeColors.textSecondary }}>Date</th>
+                  <th style={{ textAlign: "left", padding: "12px", color: themeColors.textSecondary }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {submissions.map((item) => (
-                  <tr key={item.id}>
-                    <td style={{ ...tdStyle, borderTopLeftRadius: "15px", borderBottomLeftRadius: "15px" }}>
-                      <div style={{ fontWeight: "bold" }}>{item.file_name}</div>
-                      <div style={{ fontSize: "12px", color: "#94a3b8" }}>by {item.user_name}</div>
+                {sortedSubmissions.map((item) => (
+                  <tr key={item.id} style={{ borderBottom: `1px solid ${themeColors.border}50` }}>
+                    <td style={{ padding: "12px", color: themeColors.textPrimary }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span>📄</span>
+                        {item.file_name || "Unknown File"}
+                      </div>
                     </td>
-                    <td style={tdStyle}>
-                      <span style={{ background: "rgba(0,198,255,0.1)", color: "#00c6ff", padding: "4px 8px", borderRadius: "4px", fontSize: "12px" }}>{item.language}</span>
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{ 
-                        color: item.status === "pending" ? "#f59e0b" : item.status === "approved" ? "#10b981" : "#ef4444",
-                        fontSize: '13px', fontWeight: 'bold'
-                      }}>
-                        ● {item.status.toUpperCase()}
+                    <td style={{ padding: "12px" }}>
+                      <span style={getStatusBadgeStyle(item.status)}>
+                        {item.status}
                       </span>
                     </td>
-
-                    {/* 🔥 REJECTION REASON CELL */}
-                    {filter === "rejected" && (
-                      <td style={{ ...tdStyle, color: "#fca5a5", fontStyle: "italic", fontSize: "14px" }}>
-                        {item.rejection_reason || "No reason specified"}
-                      </td>
-                    )}
-
-                    <td style={{ ...tdStyle, borderTopRightRadius: "15px", borderBottomRightRadius: "15px", textAlign: "right" }}>
-                      <button
-                        onClick={async () => {
-                          try {
-                            const res = await API.put(`/admin/bookmark/${item.id}`);
-                            alert(res.data.message); // shows bookmarked message
-                            fetchSubmissions(filter);
-                          } catch (err) {
-                            console.error(err);
-                          }
-                        }}
-                        style={{
-                          background: item.is_bookmarked ? "#facc15" : "transparent",
-                          border: "1px solid #facc15",
-                          color: "#facc15",
-                          padding: "6px 10px",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                          marginRight: "10px"
-                        }}
-                      >
-                        ⭐
+                    <td style={{ padding: "12px", color: themeColors.textSecondary }}>{item.user_name || "Anonymous"}</td>
+                    <td style={{ padding: "12px", color: themeColors.textSecondary }}>
+                      {new Date(item.created_at).toLocaleDateString()}
+                    </td>
+                    <td style={{ padding: "12px" }}>
+                      <button onClick={() => handleView(item.id)} style={buttonStyle.primary}>
+                        View Code
                       </button>
-                      <button onClick={() => handleView(item.id)} style={{ background: "none", border: "1px solid #4a5568", color: "#fff", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", marginRight: "10px" }}>View</button>
-                      
                       {item.status === "pending" && (
                         <>
-                          <button onClick={() => handleApprove(item.id)} style={{ background: "#10b981", border: "none", color: "#fff", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", marginRight: "10px" }}>Approve</button>
-                          <input 
-                            type="text" placeholder="Reason..." 
-                            value={rejectReasons[item.id] || ""} 
-                            onChange={(e) => setRejectReasons({ ...rejectReasons, [item.id]: e.target.value })} 
-                            style={{ padding: "6px", borderRadius: "6px", border: "1px solid #4a5568", background: "#1a202c", color: "#fff", width: "120px", marginRight: "5px" }}
+                          <button onClick={() => handleApprove(item.id)} style={buttonStyle.success}>
+                            Approve
+                          </button>
+                          <input
+                            placeholder="Rejection reason"
+                            onChange={(e) =>
+                              setRejectReasons({ ...rejectReasons, [item.id]: e.target.value })
+                            }
+                            style={{
+                              padding: "6px 10px",
+                              margin: "0 4px",
+                              borderRadius: "6px",
+                              border: `1px solid ${themeColors.border}`,
+                              background: themeColors.bgInner,
+                              color: themeColors.textPrimary,
+                              width: "150px",
+                            }}
                           />
-                          <button onClick={() => handleReject(item.id)} style={{ background: "#ef4444", border: "none", color: "#fff", padding: "6px 12px", borderRadius: "6px", cursor: "pointer" }}>Reject</button>
+                          <button onClick={() => handleReject(item.id)} style={buttonStyle.danger}>
+                            Reject
+                          </button>
                         </>
                       )}
                     </td>
@@ -349,140 +445,172 @@ const addComment = async () => {
         )}
       </div>
 
-      {/* FOOTER */}
-      <footer className="dashboard-footer">
-        <div className="footer-content">
-          <div style={{ textAlign: 'center', color: '#64748b', fontSize: '14px' }}>
-            <p>© 2026 AI Code Analyzer • Admin Portal • Internal Use Only</p>
-          </div>
-        </div>
-      </footer>
-
-      {/* CODE VIEW MODAL */}
+      {/* Modal */}
       {selectedCode && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(5px)" }} onClick={() => setSelectedCode(null)}>
-          <div style={{ background: "#1a202c", padding: "30px", borderRadius: "20px", width: "90%", maxWidth: "900px", border: "1px solid rgba(255,255,255,0.1)" }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginBottom: "15px", color: "#fff" }}>{selectedCode.file_name}</h3>
-            <pre style={{ background: "#0a0f1e", color: "#00ff99", padding: "20px", borderRadius: "10px", maxHeight: "60vh", overflow: "auto", fontFamily: "monospace", fontSize: "14px" }}>
-              {selectedCode.code}
-            </pre>
-            {/* 💬 COMMENTS */}
-              <div style={{
-                marginTop: "20px",
-                background: "#0f172a",
-                padding: "15px",
-                borderRadius: "12px",
-                maxHeight: "200px",
-                overflowY: "auto"
-              }}>
-                <h3 style={{ color: "#fff", marginBottom: "10px" }}>💬 Comments</h3>
+        <div onClick={() => setSelectedCode(null)} style={modalOverlayStyle}>
+          <div onClick={(e) => e.stopPropagation()} style={modalContentStyle}>
+            {/* Modal Header */}
+            <div style={{ 
+              display: "flex", 
+              justifyContent: "space-between", 
+              alignItems: "center",
+              marginBottom: "20px",
+              paddingBottom: "15px",
+              borderBottom: `1px solid ${themeColors.border}`
+            }}>
+              <h3 style={{ margin: 0, color: themeColors.textPrimary }}>Code Review</h3>
+              <button 
+                onClick={() => setSelectedCode(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: themeColors.textSecondary,
+                  fontSize: "24px",
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
 
+            {/* Code Content */}
+            <div style={{
+              background: themeColors.bgInner,
+              borderRadius: "12px",
+              padding: "20px",
+              marginBottom: "20px",
+              overflow: "auto",
+              maxHeight: "400px",
+            }}>
+              <pre style={{
+                margin: 0,
+                fontSize: "14px",
+                lineHeight: "1.5",
+                color: themeColors.textPrimary,
+              }}>
+                {selectedCode.code}
+              </pre>
+            </div>
+
+            {/* Comments Section */}
+            <div style={{ marginBottom: "20px" }}>
+              <h4 style={{ margin: "0 0 15px 0", color: themeColors.textPrimary }}>Comments ({comments.length})</h4>
+              <div style={{
+                maxHeight: "200px",
+                overflowY: "auto",
+                marginBottom: "15px",
+              }}>
                 {comments.length === 0 ? (
-                  <p style={{ color: "#94a3b8" }}>No comments yet</p>
+                  <p style={{ color: themeColors.textSecondary, textAlign: "center" }}>No comments yet</p>
                 ) : (
-                  comments.map((c) => (
-                    <div key={c.id} style={{
-                      padding: "8px",
-                      marginBottom: "8px",
-                      background: "#1e293b",
-                      borderRadius: "8px"
+                  comments.map((comment, idx) => (
+                    <div key={idx} style={{
+                      background: themeColors.bgInner,
+                      padding: "10px",
+                      borderRadius: "8px",
+                      marginBottom: "10px",
                     }}>
-                      <strong style={{ color: c.role === "admin" ? "#f87171" : "#60a5fa" }}>
-                        {c.name}
-                      </strong>
-                      <p style={{ margin: "4px 0", color: "#e2e8f0" }}>
-                        {c.comment}
-                      </p>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
+                        <strong style={{ color: themeColors.accent }}>{comment.user_name || "Admin"}</strong>
+                        <small style={{ color: themeColors.textSecondary }}>
+                          {new Date(comment.created_at).toLocaleString()}
+                        </small>
+                      </div>
+                      <p style={{ margin: 0, color: themeColors.textPrimary }}>{comment.comment}</p>
                     </div>
                   ))
                 )}
               </div>
 
-              {/* ✍️ ADMIN REPLY */}
-              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  marginTop: "10px",
-                  position: "relative"
-                }}>
-                  {/* 😊 Emoji Button */}
-                  <button
-                    onClick={() => setShowEmoji(!showEmoji)}
-                    style={{
-                      background: "#1e293b",
-                      color: "white",
-                      border: "none",
-                      padding: "8px 10px",
-                      borderRadius: "8px",
-                      cursor: "pointer"
-                    }}
-                  >
-                    😊
-                  </button>
-
-                  {/* Input */}
+              {/* Add Comment */}
+              <div style={{ position: "relative" }}>
+                <div style={{ display: "flex", gap: "10px" }}>
                   <input
-                    type="text"
-                    placeholder="Type a message..."
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Write a comment..."
                     style={{
                       flex: 1,
                       padding: "10px",
                       borderRadius: "8px",
-                      border: "1px solid #334155",
-                      background: "#1e293b",
-                      color: "#fff"
+                      border: `1px solid ${themeColors.border}`,
+                      background: themeColors.bgInner,
+                      color: themeColors.textPrimary,
                     }}
+                    onKeyPress={(e) => e.key === 'Enter' && addComment()}
                   />
-
-                  {/* Send */}
                   <button
-                    onClick={addComment}
+                    onClick={() => setShowEmoji(!showEmoji)}
                     style={{
-                      background: "#22c55e",
-                      color: "white",
-                      padding: "10px 15px",
-                      borderRadius: "8px",
-                      border: "none",
-                      cursor: "pointer"
+                      ...buttonStyle.secondary,
+                      fontSize: "20px",
+                      padding: "0 15px",
                     }}
                   >
-                    ➤
+                    😊
                   </button>
-
-                  {/* 🎉 Emoji Picker */}
-                  {showEmoji && (
-                    <div style={{
-                      position: "absolute",
-                      bottom: "50px",
-                      left: "0",
-                      zIndex: 1000
-                    }}>
-                      <EmojiPicker onEmojiClick={onEmojiClick} />
-                    </div>
-                  )}
+                  <button onClick={addComment} style={buttonStyle.primary}>
+                    Send
+                  </button>
                 </div>
-                <button
-                  onClick={addComment}
-                  style={{
-                    background: "#ef4444",
-                    color: "white",
-                    padding: "10px 15px",
-                    borderRadius: "8px",
-                    border: "none",
-                    cursor: "pointer"
-                  }}
-                >
-                  Send
-                </button>
+                {showEmoji && (
+                  <div style={{
+                    position: "absolute",
+                    bottom: "100%",
+                    right: 0,
+                    marginBottom: "10px",
+                    zIndex: 1001,
+                  }}>
+                    <EmojiPicker onEmojiClick={onEmojiClick} />
+                  </div>
+                )}
               </div>
-            <button onClick={() => setSelectedCode(null)} style={{ marginTop: "20px", padding: "10px 20px", background: "#4a5568", color: "white", border: "none", borderRadius: "8px", cursor: "pointer" }}>Close Preview</button>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              <button onClick={() => setSelectedCode(null)} style={buttonStyle.secondary}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Add animation styles */}
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// StatCard Component
+function StatCard({ icon, title, value, color, themeColors, theme }) {
+  return (
+    <div style={{
+      background: themeColors.cardBg,
+      padding: "25px",
+      borderRadius: "16px",
+      border: `1px solid ${themeColors.border}`,
+      boxShadow: theme === "dark" ? "0 4px 12px rgba(0,0,0,0.1)" : "0 4px 12px rgba(0,0,0,0.05)",
+      transition: "all 0.3s ease",
+      textAlign: "center"
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = "translateY(-5px)";
+      e.currentTarget.style.boxShadow = theme === "dark" ? "0 8px 20px rgba(0,0,0,0.15)" : "0 8px 20px rgba(0,0,0,0.1)";
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = "translateY(0)";
+      e.currentTarget.style.boxShadow = theme === "dark" ? "0 4px 12px rgba(0,0,0,0.1)" : "0 4px 12px rgba(0,0,0,0.05)";
+    }}>
+      <div style={{ fontSize: "2rem", marginBottom: "10px" }}>{icon}</div>
+      <h2 style={{ margin: "10px 0", color: color, fontSize: "2rem" }}>{value}</h2>
+      <p style={{ color: themeColors.textSecondary, margin: 0 }}>{title}</p>
     </div>
   );
 }

@@ -3,9 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { 
   FaUserCircle, FaSignOutAlt, FaCamera, FaGithub, 
   FaLinkedin, FaMapMarkerAlt, FaGraduationCap, 
-  FaHeart, FaBell, FaBellSlash, FaLock, FaToggleOn, FaToggleOff
+  FaHeart, FaBell, FaBellSlash, FaLock, FaToggleOn, FaToggleOff,
+  FaEnvelope, FaPhone, FaGlobe, FaSave, FaEdit, FaTimes,
+  FaCheckCircle, FaExclamationTriangle, FaSpinner
 } from "react-icons/fa";
 import API from "../services/api";
+import { useTheme } from "../context/ThemeContext";
 
 function Profile() {
   const navigate = useNavigate();
@@ -15,7 +18,6 @@ function Profile() {
     github: "", profile_image: null
   });
 
-  // Settings state
   const [settings, setSettings] = useState({
     notifications: true,
     email_notifications: true
@@ -26,60 +28,63 @@ function Profile() {
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
-
-  // 🔥 PASSWORD MODAL STATES
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [showToast, setShowToast] = useState(null);
+
+  // ✅ USE THEME FROM CONTEXT
+  const { themeColors, theme } = useTheme();
+
+  const showToastMessage = (message, type = "success") => {
+    setShowToast({ message, type });
+    setTimeout(() => setShowToast(null), 3000);
+  };
 
   useEffect(() => {
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        const res = await API.get("/user/profile");
 
-      const res = await API.get("/user/profile");
+        const safeProfile = {
+          first_name: res.data.first_name || "",
+          last_name: res.data.last_name || "",
+          bio: res.data.bio || "",
+          education: res.data.education || "",
+          college: res.data.college || "",
+          location: res.data.location || "",
+          skills: res.data.skills || "",
+          linkedin: res.data.linkedin || "",
+          github: res.data.github || "",
+          profile_image: res.data.profile_image || null
+        };
 
-      const safeProfile = {
-        first_name: res.data.first_name || "",
-        last_name: res.data.last_name || "",
-        bio: res.data.bio || "",
-        education: res.data.education || "",
-        college: res.data.college || "",
-        location: res.data.location || "",
-        skills: res.data.skills || "",
-        linkedin: res.data.linkedin || "",
-        github: res.data.github || "",
-        profile_image: res.data.profile_image || null
-      };
+        setProfile(safeProfile);
 
-      setProfile(safeProfile);
-
-              if (safeProfile.profile_image) {
+        if (safeProfile.profile_image) {
           const src = safeProfile.profile_image;
-
-          const fullImageUrl =
-            src.startsWith("http") || src.startsWith("data:image")
-              ? src
-              : `http://localhost:5000${src}`;
-
+          const fullImageUrl = src.startsWith("http") || src.startsWith("data:image")
+            ? src
+            : `http://localhost:5000${src}`;
           setImagePreview(fullImageUrl);
         }
 
-      setSettings({
-        notifications: res.data.notifications !== false
-      });
-    } catch (err) {
-      const errMsg = err.response?.data?.error || err.message || "Unknown error";
-      console.error("Profile fetch failed:", err);
-      alert("Profile error: " + errMsg);
-    } finally {
-      setLoading(false);
-    }
-  };
+        setSettings({
+          notifications: res.data.notifications !== false
+        });
+      } catch (err) {
+        const errMsg = err.response?.data?.error || err.message || "Unknown error";
+        console.error("Profile fetch failed:", err);
+        showToastMessage("Profile error: " + errMsg, "error");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  fetchProfile();
-}, []);
+    fetchProfile();
+  }, []);
 
   const handleChange = (e) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
@@ -96,23 +101,22 @@ function Profile() {
     try {
       setSavingSettings(true);
       await API.patch("/user/settings", settings);
-      alert("✅ Settings updated!");
+      showToastMessage("Settings updated successfully!", "success");
     } catch (err) {
       console.error("Settings save error:", err);
-      alert("❌ Settings update failed");
+      showToastMessage("Settings update failed", "error");
     } finally {
       setSavingSettings(false);
     }
   };
 
-  // 🔥 PASSWORD RESET FUNCTIONS
   const resetPassword = async () => {
     try {
       setSavingSettings(true);
       await API.post("/user/password/reset");
       setShowPasswordModal(true);
     } catch (err) {
-      alert("❌ Reset failed: " + (err.response?.data?.error || "Try again"));
+      showToastMessage("Reset failed: " + (err.response?.data?.error || "Try again"), "error");
     } finally {
       setSavingSettings(false);
     }
@@ -141,10 +145,11 @@ function Profile() {
       setNewPassword('');
       setConfirmPassword('');
       setPasswordError('');
-      alert("✅ Password reset successfully!");
+      showToastMessage("Password reset successfully!", "success");
       
     } catch (err) {
       setPasswordError(err.response?.data?.error || "Reset failed");
+      showToastMessage("Password reset failed", "error");
     } finally {
       setSavingSettings(false);
     }
@@ -177,318 +182,562 @@ function Profile() {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      alert("✅ Profile updated successfully!");
-      window.location.reload();
+      showToastMessage("Profile updated successfully!", "success");
+      setTimeout(() => window.location.reload(), 1500);
     } catch (err) {
       console.error("Profile save error:", err.response?.data || err);
-      alert("❌ Update failed: " + (err.response?.data?.error || err.message));
+      showToastMessage("Update failed: " + (err.response?.data?.error || err.message), "error");
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
+  // Animation styles
+  const animationStyles = `
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes modalScaleIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .profile-input:focus {
+      outline: none;
+      border-color: ${themeColors.accent};
+      box-shadow: 0 0 0 2px ${themeColors.accentGlow};
+    }
+    .setting-card:hover {
+      transform: translateY(-2px);
+      border-color: ${themeColors.accent};
+    }
+  `;
+
+  if (loading && !profile.first_name) {
     return (
       <div style={{ 
         display: "flex", justifyContent: "center", alignItems: "center", 
-        height: "100vh", backgroundColor: "#0d1117" 
+        height: "100vh", background: themeColors.background 
       }}>
-        <div style={{ color: "#58a6ff", fontSize: "18px" }}>Loading profile...</div>
+        <div style={{ textAlign: "center" }}>
+          <div className="spinner" style={{ 
+            width: "48px", 
+            height: "48px", 
+            border: `4px solid ${themeColors.border}`, 
+            borderTop: `4px solid ${themeColors.accent}`, 
+            borderRadius: "50%", 
+            animation: "spin 1s linear infinite",
+            marginBottom: "16px"
+          }}></div>
+          <div style={{ color: themeColors.textSecondary }}>Loading profile...</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={pageWrapper}>
-      {/* HEADER */}
-      <header style={headerStyle}>
-        <div style={contentWidth}>
-          <div style={headerFlex}>
-            <h1 style={logoStyle}>AI Code Analyzer</h1>
-            <nav style={navGap}>
-              <button className="nav-link" onClick={() => navigate("/dashboard")}>Home</button>
-              <button className="nav-link" onClick={() => navigate("/analyzer")}>Analyze</button>
-              <button className="nav-link" onClick={() => navigate("/code-runner")}>Runner</button>
-              <button className="icon-btn blue" onClick={() => navigate("/profile")}><FaUserCircle size={24} /></button>
-              <button className="icon-btn red" onClick={() => navigate("/")}>
-                <FaSignOutAlt size={20} />
-              </button>
-            </nav>
-          </div>
+    <div style={{ 
+      minHeight: "100vh", 
+      background: themeColors.background, 
+      color: themeColors.textPrimary,
+      paddingTop: "80px",
+      paddingBottom: "60px"
+    }}>
+      <style>{animationStyles}</style>
+      
+      {/* Toast Notification */}
+      {showToast && (
+        <div style={{
+          position: "fixed",
+          bottom: "24px",
+          right: "24px",
+          padding: "12px 20px",
+          background: themeColors.cardBg,
+          border: `1px solid ${showToast.type === "success" ? themeColors.success : themeColors.danger}`,
+          borderRadius: "12px",
+          color: themeColors.textPrimary,
+          fontSize: "14px",
+          zIndex: 10000,
+          animation: "slideIn 0.3s ease",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px"
+        }}>
+          {showToast.type === "success" ? <FaCheckCircle color={themeColors.success} /> : <FaExclamationTriangle color={themeColors.danger} />}
+          {showToast.message}
         </div>
-      </header>
+      )}
 
-      {/* MAIN CONTENT */}
-      <main style={mainContent}>
-        <div style={containerStyle}>
-          <div style={cardStyle}>
-            
-            {/* PROFILE AVATAR & NAME */}
-            <div style={{ textAlign: "center", marginBottom: "30px" }}>
-              <div style={avatarWrapperStyle}>
-                {imagePreview ? (
-                  <img
-                    src={
-                      // If already a full URL or Data URL, use as-is
-                      imagePreview.startsWith("http") || imagePreview.startsWith("data:image")
-                        ? imagePreview
-                        // If it's a relative path, prefix with server base
-                        : `http://localhost:5000${imagePreview}`
-                    }
-                    alt="Profile"
-                    style={avatarImg}
-                    crossOrigin="anonymous"
-                    referrerPolicy="no-referrer"
-                    loading="lazy"
-                    onError={(e) => {
-                      console.error("❌ Image failed:", imagePreview);
-                      e.target.onerror = null;
-                      e.target.style.display = "none";
-                    }}
-                  />
-                  ) : (
-                    <FaUserCircle style={{ width: "100%", height: "100%", color: "#30363d" }} />
-                  )}
-                {edit && (
-                  <label style={cameraBadge}>
-                    <FaCamera size={12} />
-                    <input 
-                      type="file" 
-                      accept="image/*"
-                      onChange={handleImageChange} 
-                      style={{ display: "none" }} 
-                    />
-                  </label>
-                )}
-              </div>
-              <h2 style={{ color: "#fff", marginTop: "15px" }}>
-                {profile.first_name || "Guest"} {profile.last_name}
-              </h2>
-            </div>
+      <main style={{ maxWidth: "900px", margin: "0 auto", padding: "0 24px" }}>
+        
+        {/* Header Section */}
+        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+          <div style={{ 
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "12px",
+            background: `linear-gradient(135deg, ${themeColors.accent}, #4c51bf)`,
+            padding: "8px 20px",
+            borderRadius: "40px",
+            marginBottom: "20px"
+          }}>
+            <FaUserCircle size={20} color="#fff" />
+            <span style={{ color: "#fff", fontWeight: "600", fontSize: "14px" }}>User Profile</span>
+          </div>
+          <h1 style={{ 
+            fontSize: "2.5rem", 
+            fontWeight: "700", 
+            background: theme === 'dark' 
+              ? 'linear-gradient(135deg, #fff 0%, #5a67d8 100%)'
+              : 'linear-gradient(135deg, #1a1a2e 0%, #5a67d8 100%)',
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            marginBottom: "8px"
+          }}>
+            Your Profile
+          </h1>
+          <p style={{ color: themeColors.textSecondary, fontSize: "1rem" }}>
+            Manage your personal information and account settings
+          </p>
+        </div>
 
-            {/* PROFILE FORM FIELDS */}
-            <div style={formGrid}>
-              <div style={inputGroup}>
-                <label style={labelStyle}>First Name</label>
-                <input 
-                  name="first_name" 
-                  value={profile.first_name || ""} 
-                  onChange={handleChange} 
-                  disabled={!edit} 
-                  style={inputStyle(edit)} 
-                />
-              </div>
-              <div style={inputGroup}>
-                <label style={labelStyle}>Last Name</label>
-                <input 
-                  name="last_name" 
-                  value={profile.last_name || ""} 
-                  onChange={handleChange} 
-                  disabled={!edit} 
-                  style={inputStyle(edit)} 
-                />
-              </div>
-              <div style={{ ...inputGroup, gridColumn: "1/-1" }}>
-                <label style={labelStyle}>Bio</label>
-                <textarea 
-                  name="bio" 
-                  value={profile.bio || ""} 
-                  onChange={handleChange} 
-                  disabled={!edit} 
-                  style={{ ...inputStyle(edit), height: "80px", resize: "vertical" }} 
-                />
-              </div>
-              <div style={inputGroup}>
-                <label style={labelStyle}><FaGraduationCap /> College</label>
-                <input 
-                  name="college" 
-                  value={profile.college || ""} 
-                  onChange={handleChange} 
-                  disabled={!edit} 
-                  style={inputStyle(edit)} 
-                />
-              </div>
-              <div style={inputGroup}>
-                <label style={labelStyle}><FaMapMarkerAlt /> Location</label>
-                <input 
-                  name="location" 
-                  value={profile.location || ""} 
-                  onChange={handleChange} 
-                  disabled={!edit} 
-                  style={inputStyle(edit)} 
-                />
-              </div>
-              <div style={inputGroup}>
-                <label style={labelStyle}><FaLinkedin style={{ color: "#0077b5" }} /> LinkedIn</label>
-                <input 
-                  name="linkedin" 
-                  value={profile.linkedin || ""} 
-                  onChange={handleChange} 
-                  disabled={!edit} 
-                  style={inputStyle(edit)} 
-                />
-              </div>
-              <div style={inputGroup}>
-                <label style={labelStyle}><FaGithub style={{ color: "#fff" }} /> GitHub</label>
-                <input 
-                  name="github" 
-                  value={profile.github || ""} 
-                  onChange={handleChange} 
-                  disabled={!edit} 
-                  style={inputStyle(edit)} 
-                />
-              </div>
-            </div>
-
-            {/* SETTINGS SECTION */}
+        {/* Profile Card */}
+        <div style={{ 
+          background: themeColors.cardBg, 
+          border: `1px solid ${themeColors.border}`, 
+          borderRadius: "24px", 
+          padding: "32px",
+          marginBottom: "32px"
+        }}>
+          
+          {/* Avatar Section */}
+          <div style={{ textAlign: "center", marginBottom: "32px" }}>
             <div style={{ 
-              marginTop: "40px", 
-              paddingTop: "30px", 
-              borderTop: "1px solid #30363d" 
+              width: "120px", 
+              height: "120px", 
+              borderRadius: "50%", 
+              margin: "0 auto", 
+              position: "relative",
+              border: `3px solid ${themeColors.accent}`,
+              padding: "3px",
+              background: themeColors.cardBg
             }}>
-              <h3 style={{ 
-                color: "#58a6ff", 
-                marginBottom: "25px", 
-                fontSize: "1.3rem",
-                display: "flex", 
-                alignItems: "center", 
-                gap: "10px"
-              }}>
-                <FaBell /> Settings
-              </h3>
-
-              <div style={formGrid}>
-                <div style={inputGroup}>
-                  <label style={{...labelStyle, fontSize: "0.9rem"}}>
-                    <FaBell style={{ color: settings.notifications ? "#3fb950" : "#8b949e" }} /> 
-                    Notifications
-                  </label>
-                  <button 
-                    onClick={() => handleSettingsToggle('notifications')}
-                    style={{
-                      ...toggleStyle(settings.notifications),
-                      padding: "12px 20px",
-                      width: "100%",
-                      justifyContent: "space-between"
-                    }}
-                    disabled={savingSettings}
-                  >
-                    <span>Enable all notifications</span>
-                    {settings.notifications ? <FaToggleOn size={20} /> : <FaToggleOff size={20} />}
-                  </button>
-                </div>
-
-               
-
-                {/* PASSWORD RESET BUTTON */}
-                <div style={{ ...inputGroup, gridColumn: "1 / -1", marginTop: "20px" }}>
-                  <label style={labelStyle}>
-                    <FaLock style={{ color: "#f85149" }} /> Password Reset
-                  </label>
-                  <button 
-                    onClick={resetPassword}
-                    style={resetPasswordStyle}
-                    disabled={savingSettings}
-                  >
-                    🔐 Reset Password
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ marginTop: "25px", textAlign: "center" }}>
-                <button 
-                  onClick={saveSettings}
-                  disabled={savingSettings}
-                  style={{ 
-                    ...btnPrimary, 
-                    opacity: savingSettings ? 0.7 : 1, 
-                    cursor: savingSettings ? "not-allowed" : "pointer" 
+              {imagePreview ? (
+                <img
+                  src={imagePreview}
+                  alt="Profile"
+                  style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.style.display = "none";
                   }}
-                >
-                  {savingSettings ? "💾 Saving..." : "✅ Save Settings"}
-                </button>
-              </div>
-            </div>
-
-            {/* PROFILE ACTION BUTTONS */}
-            <div style={{ marginTop: "30px", textAlign: "center" }}>
-              {!edit ? (
-                <button onClick={() => setEdit(true)} style={btnPrimary}>
-                  ✏️ Edit Profile
-                </button>
+                />
               ) : (
-                <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
-                  <button 
-                    onClick={saveProfile} 
-                    disabled={loading}
-                    style={{ 
-                      ...btnPrimary, 
-                      opacity: loading ? 0.7 : 1, 
-                      cursor: loading ? "not-allowed" : "pointer" 
-                    }}
-                  >
-                    {loading ? "💾 Saving..." : "✅ Save Changes"}
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setEdit(false);
-                      setImageFile(null);
-                    }} 
-                    disabled={loading}
-                    style={{ 
-                      ...btnCancel, 
-                      opacity: loading ? 0.7 : 1, 
-                      cursor: loading ? "not-allowed" : "pointer" 
-                    }}
-                  >
-                    ❌ Cancel
-                  </button>
-                </div>
+                <FaUserCircle style={{ width: "100%", height: "100%", color: themeColors.textSecondary }} />
+              )}
+              {edit && (
+                <label style={{ 
+                  position: "absolute", 
+                  bottom: 0, 
+                  right: 0, 
+                  background: themeColors.accent, 
+                  color: "#fff", 
+                  width: "32px", 
+                  height: "32px", 
+                  borderRadius: "50%", 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center", 
+                  cursor: "pointer", 
+                  border: `2px solid ${themeColors.cardBg}`,
+                  transition: "transform 0.2s"
+                }}>
+                  <FaCamera size={14} />
+                  <input type="file" accept="image/*" onChange={handleImageChange} style={{ display: "none" }} />
+                </label>
               )}
             </div>
+            <h2 style={{ color: themeColors.textPrimary, marginTop: "16px", fontSize: "1.5rem" }}>
+              {profile.first_name || "Guest"} {profile.last_name}
+            </h2>
+          </div>
+
+          {/* Form Fields */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "20px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ fontSize: "0.75rem", color: themeColors.textSecondary, fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}>
+                First Name
+              </label>
+              <input 
+                name="first_name" 
+                value={profile.first_name || ""} 
+                onChange={handleChange} 
+                disabled={!edit} 
+                className="profile-input"
+                style={{ 
+                  padding: "12px", 
+                  borderRadius: "10px", 
+                  background: edit ? themeColors.background : themeColors.bgInner,
+                  border: `1px solid ${edit ? themeColors.accent : themeColors.border}`,
+                  color: themeColors.textPrimary, 
+                  outline: "none", 
+                  fontSize: "14px",
+                  transition: "all 0.2s"
+                }} 
+              />
+            </div>
+            
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ fontSize: "0.75rem", color: themeColors.textSecondary, fontWeight: "600" }}>Last Name</label>
+              <input 
+                name="last_name" 
+                value={profile.last_name || ""} 
+                onChange={handleChange} 
+                disabled={!edit} 
+                className="profile-input"
+                style={{ 
+                  padding: "12px", 
+                  borderRadius: "10px", 
+                  background: edit ? themeColors.background : themeColors.bgInner,
+                  border: `1px solid ${edit ? themeColors.accent : themeColors.border}`,
+                  color: themeColors.textPrimary, 
+                  outline: "none", 
+                  fontSize: "14px"
+                }} 
+              />
+            </div>
+
+            <div style={{ gridColumn: "1/-1", display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ fontSize: "0.75rem", color: themeColors.textSecondary, fontWeight: "600" }}>Bio</label>
+              <textarea 
+                name="bio" 
+                value={profile.bio || ""} 
+                onChange={handleChange} 
+                disabled={!edit} 
+                rows="3"
+                className="profile-input"
+                style={{ 
+                  padding: "12px", 
+                  borderRadius: "10px", 
+                  background: edit ? themeColors.background : themeColors.bgInner,
+                  border: `1px solid ${edit ? themeColors.accent : themeColors.border}`,
+                  color: themeColors.textPrimary, 
+                  outline: "none", 
+                  fontSize: "14px",
+                  resize: "vertical",
+                  fontFamily: "inherit"
+                }} 
+              />
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ fontSize: "0.75rem", color: themeColors.textSecondary, fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}>
+                <FaGraduationCap size={12} /> College
+              </label>
+              <input 
+                name="college" 
+                value={profile.college || ""} 
+                onChange={handleChange} 
+                disabled={!edit} 
+                className="profile-input"
+                style={{ 
+                  padding: "12px", 
+                  borderRadius: "10px", 
+                  background: edit ? themeColors.background : themeColors.bgInner,
+                  border: `1px solid ${edit ? themeColors.accent : themeColors.border}`,
+                  color: themeColors.textPrimary, 
+                  outline: "none", 
+                  fontSize: "14px"
+                }} 
+              />
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ fontSize: "0.75rem", color: themeColors.textSecondary, fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}>
+                <FaMapMarkerAlt size={12} /> Location
+              </label>
+              <input 
+                name="location" 
+                value={profile.location || ""} 
+                onChange={handleChange} 
+                disabled={!edit} 
+                className="profile-input"
+                style={{ 
+                  padding: "12px", 
+                  borderRadius: "10px", 
+                  background: edit ? themeColors.background : themeColors.bgInner,
+                  border: `1px solid ${edit ? themeColors.accent : themeColors.border}`,
+                  color: themeColors.textPrimary, 
+                  outline: "none", 
+                  fontSize: "14px"
+                }} 
+              />
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ fontSize: "0.75rem", color: themeColors.textSecondary, fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}>
+                <FaLinkedin size={12} style={{ color: "#0077b5" }} /> LinkedIn
+              </label>
+              <input 
+                name="linkedin" 
+                value={profile.linkedin || ""} 
+                onChange={handleChange} 
+                disabled={!edit} 
+                className="profile-input"
+                style={{ 
+                  padding: "12px", 
+                  borderRadius: "10px", 
+                  background: edit ? themeColors.background : themeColors.bgInner,
+                  border: `1px solid ${edit ? themeColors.accent : themeColors.border}`,
+                  color: themeColors.textPrimary, 
+                  outline: "none", 
+                  fontSize: "14px"
+                }} 
+              />
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ fontSize: "0.75rem", color: themeColors.textSecondary, fontWeight: "600", display: "flex", alignItems: "center", gap: "6px" }}>
+                <FaGithub size={12} /> GitHub
+              </label>
+              <input 
+                name="github" 
+                value={profile.github || ""} 
+                onChange={handleChange} 
+                disabled={!edit} 
+                className="profile-input"
+                style={{ 
+                  padding: "12px", 
+                  borderRadius: "10px", 
+                  background: edit ? themeColors.background : themeColors.bgInner,
+                  border: `1px solid ${edit ? themeColors.accent : themeColors.border}`,
+                  color: themeColors.textPrimary, 
+                  outline: "none", 
+                  fontSize: "14px"
+                }} 
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div style={{ marginTop: "32px", textAlign: "center" }}>
+            {!edit ? (
+              <button onClick={() => setEdit(true)} style={{
+                padding: "12px 28px",
+                background: `linear-gradient(135deg, ${themeColors.accent}, #4c51bf)`,
+                color: "#fff",
+                border: "none",
+                borderRadius: "12px",
+                fontWeight: "600",
+                cursor: "pointer",
+                fontSize: "14px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                transition: "transform 0.2s"
+              }}>
+                <FaEdit size={14} /> Edit Profile
+              </button>
+            ) : (
+              <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
+                <button 
+                  onClick={saveProfile} 
+                  disabled={loading}
+                  style={{ 
+                    padding: "12px 28px",
+                    background: `linear-gradient(135deg, ${themeColors.success}, #16a34a)`,
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "12px",
+                    fontWeight: "600",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    opacity: loading ? 0.7 : 1,
+                    fontSize: "14px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px"
+                  }}
+                >
+                  {loading ? <FaSpinner style={{ animation: "spin 1s linear infinite" }} /> : <FaSave size={14} />}
+                  {loading ? "Saving..." : "Save Changes"}
+                </button>
+                <button 
+                  onClick={() => {
+                    setEdit(false);
+                    setImageFile(null);
+                  }} 
+                  disabled={loading}
+                  style={{ 
+                    padding: "12px 28px",
+                    background: "transparent",
+                    color: themeColors.danger,
+                    border: `1px solid ${themeColors.danger}`,
+                    borderRadius: "12px",
+                    fontWeight: "600",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    opacity: loading ? 0.7 : 1,
+                    fontSize: "14px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px"
+                  }}
+                >
+                  <FaTimes size={14} /> Cancel
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Settings Card */}
+        <div style={{ 
+          background: themeColors.cardBg, 
+          border: `1px solid ${themeColors.border}`, 
+          borderRadius: "24px", 
+          padding: "32px"
+        }}>
+          <h3 style={{ 
+            color: themeColors.accent, 
+            marginBottom: "24px", 
+            fontSize: "1.3rem",
+            display: "flex", 
+            alignItems: "center", 
+            gap: "10px"
+          }}>
+            <FaBell /> Account Settings
+          </h3>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "20px" }}>
+            {/* Notification Setting */}
+            <div className="setting-card" style={{ 
+              padding: "16px", 
+              background: themeColors.bgInner, 
+              borderRadius: "16px",
+              border: `1px solid ${themeColors.border}`,
+              transition: "all 0.2s"
+            }}>
+              <label style={{ fontSize: "0.85rem", color: themeColors.textSecondary, marginBottom: "8px", display: "block" }}>
+                <FaBell style={{ color: settings.notifications ? themeColors.success : themeColors.textSecondary, marginRight: "6px" }} /> 
+                Notifications
+              </label>
+              <button 
+                onClick={() => handleSettingsToggle('notifications')}
+                style={{
+                  width: "100%",
+                  padding: "10px 16px",
+                  background: settings.notifications ? themeColors.success : themeColors.border,
+                  border: "none",
+                  borderRadius: "10px",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  transition: "all 0.2s"
+                }}
+                disabled={savingSettings}
+              >
+                <span>Enable all notifications</span>
+                {settings.notifications ? <FaToggleOn size={20} /> : <FaToggleOff size={20} />}
+              </button>
+            </div>
+
+            {/* Password Reset */}
+            <div className="setting-card" style={{ 
+              padding: "16px", 
+              background: themeColors.bgInner, 
+              borderRadius: "16px",
+              border: `1px solid ${themeColors.border}`,
+              transition: "all 0.2s"
+            }}>
+              <label style={{ fontSize: "0.85rem", color: themeColors.textSecondary, marginBottom: "8px", display: "block" }}>
+                <FaLock style={{ color: themeColors.danger, marginRight: "6px" }} /> Password Reset
+              </label>
+              <button 
+                onClick={resetPassword}
+                style={{
+                  width: "100%",
+                  padding: "10px 16px",
+                  background: `linear-gradient(135deg, ${themeColors.danger}, #da3633)`,
+                  border: "none",
+                  borderRadius: "10px",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  transition: "all 0.2s"
+                }}
+                disabled={savingSettings}
+              >
+                <FaLock size={14} /> Reset Password
+              </button>
+            </div>
+          </div>
+
+          {/* Save Settings Button */}
+          <div style={{ marginTop: "24px", textAlign: "center" }}>
+            <button 
+              onClick={saveSettings}
+              disabled={savingSettings}
+              style={{ 
+                padding: "10px 24px",
+                background: `linear-gradient(135deg, ${themeColors.info}, #3182ce)`,
+                color: "#fff",
+                border: "none",
+                borderRadius: "10px",
+                fontWeight: "600",
+                cursor: savingSettings ? "not-allowed" : "pointer",
+                opacity: savingSettings ? 0.7 : 1,
+                fontSize: "13px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px"
+              }}
+            >
+              {savingSettings ? <FaSpinner style={{ animation: "spin 1s linear infinite" }} /> : <FaSave size={14} />}
+              {savingSettings ? "Saving..." : "Save Settings"}
+            </button>
           </div>
         </div>
       </main>
 
-      {/* FOOTER */}
-      <footer style={footerStyle}>
-        <div style={contentWidth}>
-          <div style={footerGrid}>
-            <div>
-              <h4 style={{ color: "#fff", marginBottom: "10px" }}>AI Code Analyzer</h4>
-              <p style={{ fontSize: "0.85rem", lineHeight: "1.6" }}>
-                Empowering developers with AI-driven insights and real-time code analysis.
-              </p>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <p style={{ fontSize: "0.85rem" }}>
-                Made with <FaHeart style={{ color: "#ff4d4d", margin: "0 4px" }} /> for Devs
-              </p>
-              <div style={{ marginTop: "10px", display: "flex", justifyContent: "center", gap: "15px" }}>
-                <span style={footerLink}>Privacy</span>
-                <span style={footerLink}>Terms</span>
-                <span style={footerLink}>Docs</span>
-              </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={statusIndicator}>
-                <div style={statusDot}></div>
-                System Operational
-              </div>
-              <p style={{ fontSize: "0.75rem", marginTop: "10px", color: "#8b949e" }}>
-                © 2026 AI Code Analyzer Inc.
-              </p>
-            </div>
-          </div>
-        </div>
-      </footer>
-
-      {/* 🔥 PASSWORD RESET MODAL */}
+      {/* Password Reset Modal */}
       {showPasswordModal && (
-        <div style={modalOverlay}>
-          <div style={modalContent}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-              <h3 style={{ color: "#fff", margin: 0 }}>🔐 Reset Password</h3>
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(10, 10, 26, 0.95)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 10000,
+          backdropFilter: "blur(8px)"
+        }}>
+          <div style={{
+            background: themeColors.cardBg,
+            padding: "32px",
+            borderRadius: "24px",
+            border: `1px solid ${themeColors.border}`,
+            minWidth: "400px",
+            maxWidth: "90vw",
+            animation: "modalScaleIn 0.3s ease"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+              <h3 style={{ color: themeColors.textPrimary, margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                <FaLock color={themeColors.accent} /> Reset Password
+              </h3>
               <button 
                 onClick={() => {
                   setShowPasswordModal(false);
@@ -496,15 +745,22 @@ function Profile() {
                   setConfirmPassword('');
                   setPasswordError('');
                 }}
-                style={{ background: "none", border: "none", color: "#8b949e", fontSize: "20px", cursor: "pointer" }}
+                style={{ 
+                  background: "none", 
+                  border: "none", 
+                  color: themeColors.textSecondary, 
+                  fontSize: "24px", 
+                  cursor: "pointer",
+                  transition: "color 0.2s"
+                }}
               >
                 ×
               </button>
             </div>
             
-            <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <div>
-                <label style={{ color: "#8b949e", fontSize: "14px", marginBottom: "5px", display: "block" }}>
+                <label style={{ color: themeColors.textSecondary, fontSize: "13px", marginBottom: "6px", display: "block" }}>
                   New Password
                 </label>
                 <input 
@@ -512,13 +768,23 @@ function Profile() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter new password (6+ chars)"
-                  style={passwordInputStyle}
+                  className="profile-input"
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    background: themeColors.background,
+                    border: `1px solid ${themeColors.border}`,
+                    borderRadius: "10px",
+                    color: themeColors.textPrimary,
+                    fontSize: "14px",
+                    outline: "none"
+                  }}
                   autoFocus
                 />
               </div>
               
               <div>
-                <label style={{ color: "#8b949e", fontSize: "14px", marginBottom: "5px", display: "block" }}>
+                <label style={{ color: themeColors.textSecondary, fontSize: "13px", marginBottom: "6px", display: "block" }}>
                   Confirm Password
                 </label>
                 <input 
@@ -526,24 +792,34 @@ function Profile() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
-                  style={passwordInputStyle}
+                  className="profile-input"
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    background: themeColors.background,
+                    border: `1px solid ${themeColors.border}`,
+                    borderRadius: "10px",
+                    color: themeColors.textPrimary,
+                    fontSize: "14px",
+                    outline: "none"
+                  }}
                 />
               </div>
               
               {passwordError && (
                 <div style={{ 
-                  color: "#f85149", 
+                  color: themeColors.danger, 
                   fontSize: "13px", 
-                  padding: "8px 12px", 
-                  background: "rgba(248,81,73,0.1)", 
-                  borderRadius: "6px",
-                  borderLeft: "3px solid #f85149"
+                  padding: "10px 14px", 
+                  background: "rgba(245, 101, 101, 0.1)", 
+                  borderRadius: "8px",
+                  borderLeft: `3px solid ${themeColors.danger}`
                 }}>
                   {passwordError}
                 </div>
               )}
               
-              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "10px" }}>
+              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "8px" }}>
                 <button 
                   onClick={() => {
                     setShowPasswordModal(false);
@@ -551,7 +827,15 @@ function Profile() {
                     setConfirmPassword('');
                     setPasswordError('');
                   }}
-                  style={modalCancelBtn}
+                  style={{
+                    padding: "10px 20px",
+                    background: "transparent",
+                    color: themeColors.textSecondary,
+                    border: `1px solid ${themeColors.border}`,
+                    borderRadius: "10px",
+                    cursor: "pointer",
+                    fontSize: "13px"
+                  }}
                   disabled={savingSettings}
                 >
                   Cancel
@@ -560,12 +844,18 @@ function Profile() {
                   onClick={completePasswordReset}
                   disabled={savingSettings || newPassword.length === 0 || newPassword !== confirmPassword}
                   style={{
-                    ...modalConfirmBtn,
-                    opacity: savingSettings ? 0.7 : 1,
-                    cursor: savingSettings ? "not-allowed" : (newPassword.length === 0 || newPassword !== confirmPassword ? "not-allowed" : "pointer")
+                    padding: "10px 20px",
+                    background: `linear-gradient(135deg, ${themeColors.success}, #16a34a)`,
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "10px",
+                    cursor: (savingSettings || newPassword.length === 0 || newPassword !== confirmPassword) ? "not-allowed" : "pointer",
+                    opacity: (savingSettings || newPassword.length === 0 || newPassword !== confirmPassword) ? 0.6 : 1,
+                    fontSize: "13px",
+                    fontWeight: "600"
                   }}
                 >
-                  {savingSettings ? "🔄 Resetting..." : "✅ Reset Password"}
+                  {savingSettings ? "Resetting..." : "Reset Password"}
                 </button>
               </div>
             </div>
@@ -573,172 +863,23 @@ function Profile() {
         </div>
       )}
 
-      {/* CSS + STYLES */}
       <style>{`
-        .nav-link { 
-          background: none; border: none; color: #8b949e; cursor: pointer; 
-          font-weight: 500; padding: 8px 16px; border-radius: 6px; 
-          transition: all 0.2s;
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
-        .nav-link:hover { 
-          color: #3d9af2; background: rgba(61, 154, 242, 0.1);
+        .profile-input:focus {
+          outline: none;
+          border-color: ${themeColors.accent} !important;
+          box-shadow: 0 0 0 2px ${themeColors.accentGlow};
         }
-        .icon-btn { 
-          background: none; border: none; cursor: pointer; 
-          transition: transform 0.2s; padding: 8px; border-radius: 6px;
+        .setting-card:hover {
+          transform: translateY(-2px);
+          border-color: ${themeColors.accent} !important;
         }
-        .icon-btn.blue { color: #3d9af2; }
-        .icon-btn.red { color: #f85149; }
-        .icon-btn:hover { transform: translateY(-2px); }
       `}</style>
     </div>
   );
 }
-
-// 🔥 ALL STYLES
-const pageWrapper = { 
-  display: "flex", flexDirection: "column", minHeight: "100vh", 
-  backgroundColor: "#0d1117", color: "#c9d1d9", fontFamily: "system-ui" 
-};
-
-const headerStyle = { background: "#161b22", borderBottom: "1px solid #30363d", padding: "15px 0" };
-const contentWidth = { maxWidth: "1100px", margin: "0 auto", padding: "0 20px" };
-const headerFlex = { display: "flex", justifyContent: "space-between", alignItems: "center" };
-const logoStyle = { fontSize: "1.2rem", fontWeight: "bold", color: "#58a6ff", margin: 0 };
-const navGap = { display: "flex", gap: "20px", alignItems: "center" };
-
-const mainContent = { flex: 1, padding: "40px 0" };
-const containerStyle = { maxWidth: "700px", margin: "0 auto" };
-const cardStyle = { background: "#161b22", padding: "30px", borderRadius: "12px", border: "1px solid #30363d" };
-
-const avatarWrapperStyle = { 
-  width: "100px", height: "100px", borderRadius: "50%", margin: "0 auto", 
-  position: "relative", border: "2px solid #58a6ff", padding: "3px" 
-};
-const avatarImg = { width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" };
-const cameraBadge = { 
-  position: "absolute", bottom: 0, right: 0, background: "#238636", color: "#fff", 
-  width: "26px", height: "26px", borderRadius: "50%", display: "flex", 
-  alignItems: "center", justifyContent: "center", cursor: "pointer", 
-  border: "2px solid #161b22" 
-};
-
-const formGrid = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" };
-const inputGroup = { display: "flex", flexDirection: "column", gap: "5px" };
-const labelStyle = { 
-  fontSize: "0.75rem", color: "#8b949e", fontWeight: "600", 
-  display: "flex", alignItems: "center", gap: "6px" 
-};
-const inputStyle = (edit) => ({ 
-  padding: "10px", borderRadius: "6px", background: edit ? "#0d1117" : "#21262d", 
-  border: edit ? "1px solid #58a6ff" : "1px solid #30363d", color: "#fff", 
-  outline: "none", fontSize: "14px"
-});
-
-const toggleStyle = (active) => ({
-  background: active ? "#238636" : "#30363d",
-  color: "#fff",
-  border: active ? "1px solid #2ea043" : "1px solid #30363d",
-  borderRadius: "6px",
-  transition: "all 0.2s",
-  fontSize: "14px",
-  display: "flex",
-  alignItems: "center"
-});
-
-const resetPasswordStyle = {
-  padding: "12px 24px",
-  background: "linear-gradient(135deg, #f85149, #da3633)",
-  color: "#fff",
-  border: "none",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "14px",
-  fontWeight: "600",
-  transition: "all 0.2s",
-  boxShadow: "0 2px 8px rgba(248, 81, 73, 0.3)",
-  width: "100%"
-};
-
-const btnPrimary = { 
-  padding: "10px 24px", background: "#238636", color: "#fff", border: "none", 
-  borderRadius: "6px", fontWeight: "600", cursor: "pointer", fontSize: "14px" 
-};
-const btnCancel = { 
-  padding: "10px 24px", background: "transparent", color: "#f85149", 
-  border: "1px solid #f85149", borderRadius: "6px", cursor: "pointer", fontSize: "14px" 
-};
-
-// 🔥 MODAL STYLES
-const modalOverlay = {
-  position: "fixed",
-  top: 0, left: 0, right: 0, bottom: 0,
-  background: "rgba(13,17,23,0.9)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 9999,
-  backdropFilter: "blur(4px)"
-};
-
-const modalContent = {
-  background: "#161b22",
-  padding: "30px",
-  borderRadius: "12px",
-  border: "1px solid #30363d",
-  minWidth: "400px",
-  maxWidth: "90vw",
-  boxShadow: "0 20px 40px rgba(0,0,0,0.5)"
-};
-
-const passwordInputStyle = {
-  width: "100%",
-  padding: "12px 16px",
-  background: "#0d1117",
-  border: "1px solid #30363d",
-  borderRadius: "6px",
-  color: "#fff",
-  fontSize: "14px",
-  outline: "none",
-  transition: "border-color 0.2s"
-};
-
-const modalCancelBtn = {
-  padding: "10px 20px",
-  background: "transparent",
-  color: "#8b949e",
-  border: "1px solid #30363d",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "14px"
-};
-
-const modalConfirmBtn = {
-  padding: "10px 20px",
-  background: "#238636",
-  color: "#fff",
-  border: "none",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "14px",
-  fontWeight: "600"
-};
-
-const footerStyle = { 
-  background: "#161b22", borderTop: "1px solid #30363d", padding: "40px 0", 
-  marginTop: "auto", color: "#8b949e" 
-};
-const footerGrid = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", alignItems: "center", gap: "20px" };
-const footerLink = { 
-  fontSize: "0.8rem", cursor: "pointer", padding: "4px 8px", borderRadius: "4px" 
-};
-const statusIndicator = { 
-  display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end", 
-  color: "#3fb950", fontSize: "0.85rem", fontWeight: "500" 
-};
-const statusDot = { 
-  width: "8px", height: "8px", borderRadius: "50%", background: "#3fb950", 
-  boxShadow: "0 0 8px #3fb950" 
-};
 
 export default Profile;

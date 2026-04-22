@@ -15,6 +15,7 @@ function Login({ isOpen, onClose, onSwitchToRegister }) {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError("");
 

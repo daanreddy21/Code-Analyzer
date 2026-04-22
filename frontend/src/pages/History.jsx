@@ -6,12 +6,26 @@ import {
   faBolt,
   faTriangleExclamation,
   faLightbulb,
-  faShuffle
+  faShuffle,
+  faDownload,
+  faTrash,
+  faEye,
+  faChartLine,
+  faHistory as faHistoryIcon,
+  faShare,
+  faComment,
+  faPaperPlane,
+  faRobot,
+  faCheckCircle,
+  faTimesCircle,
+  faClock
 } from "@fortawesome/free-solid-svg-icons";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 import RewardCard from "../components/RewardCard";
 import { io } from "socket.io-client";
+import { useTheme } from "../context/ThemeContext";
+import EmojiPicker from "emoji-picker-react";
 
 function History() {
   const navigate = useNavigate();
@@ -24,13 +38,10 @@ function History() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const itemsPerPage = 5;
-  // --- ADD THIS HERE ---
   const [projectAnalysis, setProjectAnalysis] = useState(null);
   const [isAnalyzingProject, setIsAnalyzingProject] = useState(false);
-
   const [showDeleted, setShowDeleted] = useState(false);
   const [deletedFiles, setDeletedFiles] = useState([]);
-
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const socket = useMemo(() => io("http://localhost:5000"), []);
@@ -40,76 +51,154 @@ function History() {
   const [liveAnalysis, setLiveAnalysis] = useState([]);
   const [aiAnalysis, setAiAnalysis] = useState([]);
   const [loadingAI, setLoadingAI] = useState(false);
-
   const [versions, setVersions] = useState([]);
   const [selectedVersion, setSelectedVersion] = useState(null);
   const token = localStorage.getItem("token");
+  const [showEmoji, setShowEmoji] = useState(false);
 
+  // ✅ USE THEME FROM CONTEXT
+  const { themeColors, theme } = useTheme();
+
+  const onEmojiClick = (emojiData) => {
+  setNewComment((prev) => prev + emojiData.emoji);
+  setShowEmoji(false);
+};
+
+  // Utility function to format AI explanation text
+  const formatAIText = (text) => {
+    if (!text) return null;
+    
+    const lines = text.split('\n');
+    const formatted = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      if (line.includes('```')) continue;
+      
+      if (line.includes('###')) {
+        formatted.push(
+          <div key={i} style={{ 
+            marginTop: i > 0 ? '20px' : 0,
+            marginBottom: '12px',
+            fontWeight: '700',
+            color: themeColors.accent,
+            fontSize: '15px',
+            borderLeft: `3px solid ${themeColors.accent}`,
+            paddingLeft: '12px'
+          }}>
+            {line.replace(/###/g, '').replace(/\*\*/g, '').trim()}
+          </div>
+        );
+      }
+      else if (line.match(/^\d+\./)) {
+        formatted.push(
+          <div key={i} style={{ 
+            marginBottom: '8px',
+            marginLeft: '16px',
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'flex-start'
+          }}>
+            <span style={{ color: themeColors.accent, fontWeight: 'bold', minWidth: '24px' }}>
+              {line.match(/^\d+/)[0]}.
+            </span>
+            <span style={{ color: themeColors.textPrimary, flex: 1 }}>
+              {line.replace(/^\d+\./, '').trim()}
+            </span>
+          </div>
+        );
+      }
+      else if (line.trim().startsWith('-') || line.trim().startsWith('•')) {
+        const content = line.replace(/^[-•]\s*/, '');
+        formatted.push(
+          <div key={i} style={{ 
+            marginLeft: '32px', 
+            marginBottom: '6px',
+            display: 'flex',
+            gap: '8px',
+            color: themeColors.textSecondary
+          }}>
+            <span>•</span>
+            <span>{content}</span>
+          </div>
+        );
+      }
+      else if (line.includes('---')) {
+        formatted.push(<hr key={i} style={{ borderColor: themeColors.border, margin: '16px 0' }} />);
+      }
+      else if (line.includes('`') && !line.includes('```')) {
+        const formattedLine = line.replace(/`([^`]+)`/g, (match, code) => {
+          return `<code style="background: ${themeColors.accentGlow}; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; color: ${themeColors.success};">${code}</code>`;
+        });
+        formatted.push(
+          <div key={i} style={{ marginBottom: '8px', color: themeColors.textSecondary }}
+            dangerouslySetInnerHTML={{ __html: formattedLine }} />
+        );
+      }
+      else if (!line.trim()) {
+        formatted.push(<div key={i} style={{ height: '8px' }} />);
+      }
+      else {
+        formatted.push(
+          <div key={i} style={{ marginBottom: '8px', color: themeColors.textSecondary, lineHeight: '1.6' }}>
+            {line}
+          </div>
+        );
+      }
+    }
+    
+    return formatted;
+  };
 
   useEffect(() => {
-  socket.on("new_comment", (comment) => {
-    setComments((prev) => [...prev, comment]);
-  });
+    socket.on("new_comment", (comment) => {
+      setComments((prev) => [...prev, comment]);
+    });
+    return () => socket.off("new_comment");
+  }, []);
 
-      return () => socket.off("new_comment");
-    }, []);
-
-    useEffect(() => {
-  if (!editMode) return;
-
-  const timer = setTimeout(() => {
-    if (editedCode !== originalCode) {
-      runLiveAnalysis(editedCode);
-    }
-  }, 500);
-
-  return () => clearTimeout(timer);
-}, [editedCode]);
+  useEffect(() => {
+    if (!editMode) return;
+    const timer = setTimeout(() => {
+      if (editedCode !== originalCode) {
+        runLiveAnalysis(editedCode);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [editedCode]);
   
-const fetchVersions = async (id) => {
-  try {
-    const res = await API.get(`/code/timeline/${id}`);
+  const fetchVersions = async (id) => {
+    try {
+      const res = await API.get(`/code/timeline/${id}`);
+      const fixedData = res.data.map(v => ({
+        ...v,
+        issues: typeof v.issues === "string" ? JSON.parse(v.issues) : v.issues
+      }));
+      setVersions(fixedData);
+      setSelectedVersion(fixedData[0]);
+    } catch (err) {
+      console.error("Fetch versions failed:", err);
+    }
+  };
 
-    const fixedData = res.data.map(v => ({
-      ...v,
-      issues: typeof v.issues === "string" ? JSON.parse(v.issues) : v.issues
-    }));
-
-    setVersions(fixedData);
-    setSelectedVersion(fixedData[0]);
-
-  } catch (err) {
-    console.error("Fetch versions failed:", err);
-  }
-};
-
- const viewProjectAnalysis = (project) => {
-  console.log("Analyze clicked for project:", project.title);
-
-  // Use the backend‑generated data directly
-  setProjectAnalysis({
-    ...project,
-    // If issues are stored as JSON string in DB
-    issues: typeof project.issues === "string"
-      ? JSON.parse(project.issues)
-      : project.issues || [],
-    score: project.score || 0
-  });
-
-  // Remove the hardcoded setTimeout fake issues
-};
-  // ----------------------
+  const viewProjectAnalysis = (project) => {
+    setProjectAnalysis({
+      ...project,
+      issues: typeof project.issues === "string" ? JSON.parse(project.issues) : project.issues || [],
+      score: project.score || 0
+    });
+  };
 
   useEffect(() => {
     fetchData();
   }, []);
 
-
   useEffect(() => {
-  if (analysisResult) {
-    console.log("analysisResult.issues:", analysisResult.issues);
-  }
-}, [analysisResult]);
+    if (analysisResult) {
+      console.log("analysisResult.issues:", analysisResult.issues);
+    }
+  }, [analysisResult]);
 
   const fetchData = async () => {
     try {
@@ -128,25 +217,25 @@ const fetchVersions = async (id) => {
   };
 
   const fetchDeleted = async () => {
-  try {
-    const res = await API.get("/code/deleted");
-    setDeletedFiles(res.data);
-  } catch (err) {
-    console.error("Fetch deleted failed:", err);
-  }
-};
+    try {
+      const res = await API.get("/code/deleted");
+      setDeletedFiles(res.data);
+    } catch (err) {
+      console.error("Fetch deleted failed:", err);
+    }
+  };
 
-const undoDelete = async (original_id) => {
-  if (!window.confirm("Restore this file?")) return;
-  try {
-    await API.post(`/code/deleted/${original_id}/undo`);
-    alert("✅ Restored!");
-    fetchDeleted();
-    fetchData();  // Refresh main list
-  } catch (err) {
-    alert("Undo failed");
-  }
-};
+  const undoDelete = async (original_id) => {
+    if (!window.confirm("Restore this file?")) return;
+    try {
+      await API.post(`/code/deleted/${original_id}/undo`);
+      alert("✅ Restored!");
+      fetchDeleted();
+      fetchData();
+    } catch (err) {
+      alert("Undo failed");
+    }
+  };
 
   const handleDownload = useCallback(async (projectId, title) => {
     try {
@@ -167,11 +256,10 @@ const undoDelete = async (original_id) => {
     }
   }, []);
 
-   const logout = () => {
+  const logout = () => {
     localStorage.removeItem("token");
     navigate("/");
   };
-
 
   const deleteCode = useCallback(async (id) => {
     if (!window.confirm("Delete this submission?")) return;
@@ -184,136 +272,106 @@ const undoDelete = async (original_id) => {
   }, []);
 
   const deleteProject = useCallback(async (id) => {
-  if (!window.confirm("Are you sure you want to delete this project?")) return;
-  try {
-    await API.delete(`/projects/${id}`);
-    alert("Project deleted successfully");
-    fetchData();
-  } catch (err) {
-    console.error("Delete failed:", err);
-    alert("Failed to delete project");
-  }
-}, []);
+    if (!window.confirm("Are you sure you want to delete this project?")) return;
+    try {
+      await API.delete(`/projects/${id}`);
+      alert("Project deleted successfully");
+      fetchData();
+    } catch (err) {
+      console.error("Delete failed:", err);
+      alert("Failed to delete project");
+    }
+  }, []);
 
- // Add this state inside your History component
+  const viewCode = useCallback(async (id) => {
+    try {
+      const res = await API.get(`/code/${id}`);
+      socket.emit("join_submission", id);
+      setSelectedCode({...res.data, id: id }); 
+      setEditedCode(res.data.code);
+      setOriginalCode(res.data.code);
+      setLiveAnalysis([]);
+      setEditMode(false);
+      const commentRes = await API.get(`/comments/${id}`);
+      setComments(commentRes.data);
+    } catch (err) { 
+      alert("Failed to load code"); 
+    }
+  }, []);
 
+  const runLiveAnalysis = async (newCode) => {
+    try {
+      const res = await API.post("/code/live-analysis", {
+        oldCode: originalCode,
+        newCode: newCode
+      });
+      setLiveAnalysis(res.data.analysis);
+    } catch (err) {
+      console.error("Live analysis failed", err);
+    }
+  };
 
-// Update your viewCode function
-const viewCode = useCallback(async (id) => {
-  try {
-    const res = await API.get(`/code/${id}`);
+  const runAIAnalysis = async () => {
+    try {
+      setLoadingAI(true);
+      const res = await API.post("/code/ai-analysis", {
+        oldCode: originalCode,
+        newCode: editedCode,
+        language: selectedCode.language
+      });
+      setAiAnalysis(res.data.analysis || []);
+    } catch (err) {
+      console.error("AI analysis failed", err);
+    } finally {
+      setLoadingAI(false);
+    }
+  };
 
-    socket.emit("join_submission", id); // ✅ ADDED HERE
+  const addComment = async () => {
+    if (!newComment.trim()) return;
+    try {
+      await API.post("/comments", {
+        submissionId: selectedCode.id,
+        comment: newComment
+      });
+      setNewComment("");
+      const res = await API.get(`/comments/${selectedCode.id}`);
+      setComments(res.data);
+    } catch (err) {
+      alert("Failed to add comment");
+    }
+  };
 
-    setSelectedCode({...res.data, id: id }); 
-    setEditedCode(res.data.code);
-    setOriginalCode(res.data.code); // 🔥 ADD THIS
-    setLiveAnalysis([]); // reset
-    setEditMode(false);
+  const handleSave = async () => {
+    try {
+      await API.put(`/code/${selectedCode.id}`, {
+        code: editedCode,
+        language: selectedCode.language,
+        file_name: selectedCode.file_name
+      });
+      alert("✅ Code updated and resubmitted!");
+      setSelectedCode(null);
+      fetchData(); 
+    } catch (err) {
+      console.error("Update failed:", err.response?.data || err.message);
+      alert("Update failed: " + (err.response?.data?.error || "Unknown error"))
+    }
+  };
 
-    // 🔥 ADD THIS
-    const commentRes = await API.get(`/comments/${id}`);
-    setComments(commentRes.data);
-
-  } catch (err) { 
-    alert("Failed to load code"); 
-  }
-}, []);
-
-// 🔥 NEW: LIVE ANALYSIS FUNCTION
-const runLiveAnalysis = async (newCode) => {
-  try {
-    const res = await API.post("/code/live-analysis", {
-      oldCode: originalCode,
-      newCode: newCode
-    });
-
-    setLiveAnalysis(res.data.analysis);
-  } catch (err) {
-    console.error("Live analysis failed", err);
-  }
-};
-
-const runAIAnalysis = async () => {
-  try {
-    setLoadingAI(true);
-
-    const res = await API.post("/code/ai-analysis", {
-      oldCode: originalCode,
-      newCode: editedCode,
-      language: selectedCode.language
-    });
-
-    setAiAnalysis(res.data.analysis || []);
-
-  } catch (err) {
-    console.error("AI analysis failed", err);
-  } finally {
-    setLoadingAI(false);
-  }
-};
-
-// 🔥 NEW: COMMENT FUNCTION
-const addComment = async () => {
-  if (!newComment.trim()) return;
-  console.log("Sending submissionId:", selectedCode.id);
-
-  try {
-    await API.post("/comments", {
-      submissionId: selectedCode.id,
-      comment: newComment
-      
-    });
-    console.log("Sending ID:", selectedCode.id);
-
-    setNewComment("");
-
-    // 🔁 refresh comments
-    const res = await API.get(`/comments/${selectedCode.id}`);
-    setComments(res.data);
-
-  } catch (err) {
-    alert("Failed to add comment");
-  }
-};
-
-// 🔥 NEW: SAVE EDITED CODE FUNCTION
-const handleSave = async () => {
-  try {
-    // Ensure selectedCode.id is present
-    await API.put(`/code/${selectedCode.id}`, {
-      code: editedCode,
-      language: selectedCode.language,
-      file_name: selectedCode.file_name
-    });
-    alert("✅ Code updated and resubmitted!");
-    setSelectedCode(null);
-    fetchData(); 
-  } catch (err) {
-    console.error("Update failed:", err.response?.data || err.message);
-    alert("Update failed: " + (err.response?.data?.error || "Unknown error"))
-  }
-};
-
-    const analyzeCode = useCallback(async (id) => {
-      try {
-        setIsAnalyzing(true);
-        setAnalysisResult(null); // Clear previous results
-
-        // 🔥 STEP 1: RUN ANALYSIS
-        const res = await API.get(`/code/analyze/${id}`);
-        setAnalysisResult(res.data);
-
-        // 🔥 STEP 2: FETCH ALL VERSIONS (IMPORTANT)
-        await fetchVersions(id);
-
-      } catch (err) { 
-        console.error("Analysis failed:", err);
-        alert("Analysis failed: " + (err.response?.data?.error || err.message));
-      } finally {
-        setIsAnalyzing(false);
-      }
-    }, []);
+  const analyzeCode = useCallback(async (id) => {
+    try {
+      setIsAnalyzing(true);
+      setAnalysisResult(null);
+      const res = await API.get(`/code/analyze/${id}`);
+      setAnalysisResult(res.data);
+      await fetchVersions(id);
+    } catch (err) { 
+      console.error("Analysis failed:", err);
+      alert("Analysis failed: " + (err.response?.data?.error || err.message));
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, []);
 
   const downloadFile = useCallback(async (id) => {
     try {
@@ -330,26 +388,26 @@ const handleSave = async () => {
     }
   }, []);
 
- const exportReport = useCallback(() => {
-  if (!analysisResult) return;
-  const report = `Code Analysis Report\nScore: ${analysisResult.score}/100\n\nIssues:\n${analysisResult.issuesDisplay?.join('\n') || analysisResult.issues?.join('\n') || 'No issues found'}`;
-  const blob = new Blob([report], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `report-${Date.now()}.txt`;
-  a.click();
-}, [analysisResult]);
+  const exportReport = useCallback(() => {
+    if (!analysisResult) return;
+    const report = `Code Analysis Report\nScore: ${analysisResult.score}/100\n\nIssues:\n${analysisResult.issuesDisplay?.join('\n') || analysisResult.issues?.join('\n') || 'No issues found'}`;
+    const blob = new Blob([report], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report-${Date.now()}.txt`;
+    a.click();
+  }, [analysisResult]);
 
-const copyIssues = useCallback(() => {
-  if (!analysisResult) return;
-  const issuesText = analysisResult.issuesDisplay?.join('\n') || 
-                    analysisResult.issues?.map(i => i.title || i).join('\n') || 
-                    'No issues found';
-  navigator.clipboard.writeText(issuesText).then(() => {
-    alert('Issues copied to clipboard!');
-  });
-}, [analysisResult]);
+  const copyIssues = useCallback(() => {
+    if (!analysisResult) return;
+    const issuesText = analysisResult.issuesDisplay?.join('\n') || 
+                      analysisResult.issues?.map(i => i.title || i).join('\n') || 
+                      'No issues found';
+    navigator.clipboard.writeText(issuesText).then(() => {
+      alert('Issues copied to clipboard!');
+    });
+  }, [analysisResult]);
 
   const filteredHistory = useMemo(() => 
     history.filter(item => !languageFilter || item.language === languageFilter),
@@ -364,1051 +422,904 @@ const copyIssues = useCallback(() => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentItems = filteredHistory.slice(startIndex, startIndex + itemsPerPage);
 
-  // --- STYLES ---
-  const containerStyle = {
-    minHeight: "100vh",
-    paddingTop: "120px",
-    paddingBottom: "100px",
-    fontFamily: "'Inter', sans-serif",
-    background: "#0a0f1e",
-    color: "#fff"
-  };
-  
-  const cardStyle = {
-    background: "rgba(255, 255, 255, 0.05)",
-    backdropFilter: "blur(20px)",
-    borderRadius: "24px",
-    padding: "2.5rem",
-    boxShadow: "0 25px 50px rgba(0,0,0,0.3)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    maxWidth: "1150px",
-    margin: "0 auto 40px auto",
-    width: "90%"
-  };
-  
-  const thStyle = {
-    padding: "20px 24px",
-    textAlign: "left",
-    fontWeight: "700",
-    color: "#94a3b8",
-    borderBottom: "3px solid rgba(255,255,255,0.1)"
-  };
-  
-  const tdStyle = {
-    padding: "24px",
-    background: "rgba(255,255,255,0.03)",
-    color: "#e2e8f0"
-  };
-  
-  const btnPrimary = {
-    padding: "12px 24px",
-    background: "linear-gradient(135deg, #00c6ff 0%, #0072ff 100%)",
-    color: "white",
-    border: "none",
-    borderRadius: "12px",
-    cursor: "pointer",
-    fontWeight: "600"
-  };
-  
-  const actionBtn = (bgColor) => ({
-    padding: "10px 20px",
-    background: bgColor,
-    color: "white",
-    border: "none",
-    borderRadius: "10px",
-    cursor: "pointer",
-    fontWeight: "600",
-    marginRight: "12px"
-  });
+  // Animation styles
+  const animationStyles = `
+    @keyframes modalScaleIn { 
+      from { transform: scale(0.95); opacity: 0; } 
+      to { transform: scale(1); opacity: 1; } 
+    }
+    @keyframes spin { 
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); } 
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    table tr:hover td {
+      background: ${themeColors.accentGlow};
+    }
+    .modal-content {
+      animation: modalScaleIn 0.3s ease;
+    }
+  `;
 
   if (loading) {
     return (
       <div style={{ 
-        ...containerStyle, 
+        minHeight: "100vh", 
+        background: themeColors.background, 
         display: "flex", 
         justifyContent: "center", 
         alignItems: "center" 
       }}>
-        <h2>Loading history...</h2>
+        <div style={{ textAlign: 'center' }}>
+          <div className="spinner" style={{ width: '48px', height: '48px', border: `4px solid ${themeColors.border}`, borderTop: `4px solid ${themeColors.accent}`, borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }}></div>
+          <p style={{ color: themeColors.textSecondary }}>Loading history...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={containerStyle}>
-      <style>{`
-        @keyframes modalScaleIn { 
-          from { transform: scale(0.9); opacity: 0; } 
-          to { transform: scale(1); opacity: 1; } 
-        }
-          @keyframes spin { 
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); } 
-          }
-        .dashboard-header { 
-          position: fixed; 
-          top: 0; left: 0; right: 0; 
-          z-index: 1000; 
-          padding: 14px 0; 
-          background: rgba(10, 15, 30, 0.85); 
-          backdrop-filter: blur(12px); 
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
-        }
-        .header-content { 
-          max-width: 1200px; 
-          margin: 0 auto; 
-          padding: 0 24px; 
-          display: flex; 
-          justify-content: space-between; 
-          align-items: center; 
-        }
-        .nav-btn { 
-          background: transparent; 
-          color: #cbd5e0; 
-          border: none; 
-          padding: 8px 16px; 
-          border-radius: 8px; 
-          font-weight: 600; 
-          cursor: pointer; 
-        }
-        .nav-btn.highlight { 
-          background: linear-gradient(135deg, #00c6ff, #0072ff); 
-          color: white; 
-        }
-        .dashboard-footer { 
-          background: #070b14; 
-          border-top: 1px solid rgba(255,255,255,0.1); 
-          padding: 40px 0; 
-          text-align: center; 
-          color: #94a3b8; 
-        }
-      `}</style>
+    <div style={{ 
+      minHeight: "100vh", 
+      background: themeColors.background, 
+      color: themeColors.textPrimary,
+      paddingTop: "100px",
+      paddingBottom: "60px"
+    }}>
+      <style>{animationStyles}</style>
 
-      <header className="dashboard-header">
-        <div className="header-content">
-          <div className="header-left">
-            <h1>🚀 AI Code Analyzer</h1>
+      <main style={{ maxWidth: "1400px", margin: "0 auto", padding: "0 24px" }}>
+        
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <div style={{ 
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '12px',
+            background: `linear-gradient(135deg, ${themeColors.accent}, #4c51bf)`,
+            padding: '8px 20px',
+            borderRadius: '40px',
+            marginBottom: '20px'
+          }}>
+            <FontAwesomeIcon icon={faHistoryIcon} size="lg" color="#fff" />
+            <span style={{ color: '#fff', fontWeight: '600', fontSize: '14px' }}>Code History</span>
           </div>
-          <div className="header-right">
-            <button className="nav-btn" onClick={() => navigate("/dashboard")}>Home</button>
-            <button className="nav-btn" onClick={() => navigate("/analyzer")}>Analyze</button>
-            <button className="nav-btn highlight" onClick={() => navigate("/history")}>History</button>
-            <button className="nav-btn logout" onClick={logout} style={{color: '#ff4d4d'}}>Logout</button>
+          <h1 style={{ 
+            fontSize: '2.5rem', 
+            fontWeight: '700', 
+            background: theme === 'dark' 
+              ? 'linear-gradient(135deg, #fff 0%, #5a67d8 100%)'
+              : 'linear-gradient(135deg, #1a1a2e 0%, #5a67d8 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            marginBottom: '8px'
+          }}>
+            Submission History
+          </h1>
+          <p style={{ color: themeColors.textSecondary, fontSize: '1rem' }}>
+            Track and analyze all your code submissions
+          </p>
+        </div>
+
+        {/* CODE HISTORY SECTION */}
+        <div style={{ 
+          background: themeColors.cardBg, 
+          border: `1px solid ${themeColors.border}`, 
+          borderRadius: '24px', 
+          padding: '28px',
+          marginBottom: '32px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: themeColors.textPrimary }}>
+              <FontAwesomeIcon icon={faCode} color={themeColors.accent} /> Code Submissions
+            </h2>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                onClick={() => {
+                  setShowDeleted(!showDeleted);
+                  if (!showDeleted) fetchDeleted();
+                }}
+                style={{
+                  background: showDeleted ? themeColors.danger : themeColors.border,
+                  color: themeColors.textPrimary,
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '13px'
+                }}
+              >
+                {showDeleted ? '📁 Active Files' : '🗑️ Deleted Files'}
+              </button>
+              <select 
+                onChange={(e) => setLanguageFilter(e.target.value)} 
+                value={languageFilter}
+                style={{
+                  background: themeColors.background,
+                  color: themeColors.textPrimary,
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  border: `1px solid ${themeColors.border}`,
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="">All Languages</option>
+                <option value="Java">☕ Java</option>
+                <option value="Python">🐍 Python</option>
+                <option value="JavaScript">📜 JavaScript</option>
+                <option value="C++">⚙️ C++</option>
+              </select>
+            </div>
           </div>
-        </div>
-      </header>
-
-      
-
-      {/* --- CODE HISTORY --- */}
-      <div style={cardStyle}>
-        <div style={{display:'flex', justifyContent:'space-between', marginBottom:'2rem'}}>
-          <h2>📋 Submission History</h2>
-           <button 
-              onClick={() => {
-                setShowDeleted(!showDeleted);
-                if (!showDeleted) fetchDeleted();  // Load on first click
-              }}
-              style={{
-                background: showDeleted ? '#ef4444' : '#6b7280',
-                color: 'white', padding: '10px 16px', borderRadius: '10px',
-                border: 'none', cursor: 'pointer', fontWeight: '600'
-              }}
-            >
-              {showDeleted ? '🗑️ Active Files' : '🗑️ Deleted Files'}
-            </button>
-          <select onChange={(e)=>setLanguageFilter(e.target.value)} style={{background:'#1a202c', color:'white', padding:'10px', borderRadius:'10px'}}>
-            <option value="">All Languages</option>
-            <option value="Java">Java</option>
-            <option value="Python">Python</option>
-            <option value="JavaScript">JavaScript</option>
-            <option value="C++">C++</option>
-          </select>
-        </div>
-        <table style={{width:'100%', borderCollapse:'separate', borderSpacing:'0 10px'}}>
-          <thead>
-            <tr><th style={thStyle}>Language</th><th style={thStyle}>File</th><th style={thStyle}>Date</th><th style={thStyle}>Status</th><th style={{...thStyle, textAlign:'center'}}>Actions</th></tr>
-          </thead>
-          <tbody>
-            {showDeleted ? (
-              deletedFiles.map(item => (
-                <tr key={item.original_id}>
-                  <td style={{ ...tdStyle }}>🗑️</td>
-                  <td>{item.file_name}</td>
-                  <td>{item.language}</td>
-                  <td>{new Date(item.deleted_at).toLocaleString()}</td>
-                  <td>
-                    <span style={{ background: '#ef4444', color: 'white', padding: '4px 8px', borderRadius: '6px' }}>
-                      DELETED
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <button onClick={() => downloadFile(item.original_id)} style={actionBtn("#3b82f6")}>Download</button>
-                    <button onClick={() => undoDelete(item.original_id)} style={{ ...actionBtn("#22c55e") }}>↺ Undo</button>
-                  </td>
+          
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: `2px solid ${themeColors.border}` }}>
+                  <th style={{ padding: '16px', textAlign: 'left', color: themeColors.textSecondary, fontSize: '12px', fontWeight: '600' }}>Language</th>
+                  <th style={{ padding: '16px', textAlign: 'left', color: themeColors.textSecondary, fontSize: '12px', fontWeight: '600' }}>File</th>
+                  <th style={{ padding: '16px', textAlign: 'left', color: themeColors.textSecondary, fontSize: '12px', fontWeight: '600' }}>Date</th>
+                  <th style={{ padding: '16px', textAlign: 'left', color: themeColors.textSecondary, fontSize: '12px', fontWeight: '600' }}>Status</th>
+                  <th style={{ padding: '16px', textAlign: 'center', color: themeColors.textSecondary, fontSize: '12px', fontWeight: '600' }}>Actions</th>
                 </tr>
-              ))
-            ) : (
-              currentItems.map(item => (
-                <tr key={item.id}>
-                  <td style={{ ...tdStyle, borderTopLeftRadius: '15px', borderBottomLeftRadius: '15px' }}>{item.language}</td>
-                  <td style={tdStyle}>{item.file_name || "Snippet"}</td>
-                  <td style={tdStyle}>{new Date(item.created_at).toLocaleDateString()}</td>
-                  <td style={tdStyle}>
-                    <div>
-                      <span style={{
-                        padding: "5px 10px",
-                        borderRadius: "10px",
-                        fontSize: "12px",
-                        background: item.status === "approved" ? "#16a34a" : item.status === "rejected" ? "#dc2626" : "#f59e0b",
-                        color: "white"
-                      }}>
-                        {item.status}
-                      </span>
-                      {item.status === "rejected" && item.rejection_reason && (
-                        <div style={{ fontSize: "11px", color: "#f87171", marginTop: "5px" }}>
-                          {item.rejection_reason}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td style={{ ...tdStyle, borderTopRightRadius: '15px', borderBottomRightRadius: '15px', textAlign: 'center' }}>
-                    <button onClick={() => viewCode(item.id)} style={actionBtn("#3b82f6")}>View</button>
-                    <button onClick={() => deleteCode(item.id)} style={actionBtn("#ef4444")}>Delete</button>
-                    <button 
-                      onClick={() => analyzeCode(item.id)} 
-                      style={{ ...actionBtn("#22c55e"), opacity: isAnalyzing ? 0.5 : 1 }}
-                      disabled={isAnalyzing || item.status !== "approved"}
-                    >
-                      {isAnalyzing ? "Processing..." : "Analyze"}
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-        <div style={{ display: "flex", justifyContent: "center", marginTop: "20px", gap: "10px" }}>
-          <button
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            style={{ ...btnPrimary, padding: "8px 16px", fontSize: "14px" }}
-          >
-            ← Previous
-          </button>
-
-          <span style={{ color: "#cbd5e0", padding: "8px 16px" }}>
-            Page {currentPage} of {totalPages}
-          </span>
-
-          <button
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-            style={{ ...btnPrimary, padding: "8px 16px", fontSize: "14px" }}
-          >
-            Next →
-          </button>
-        </div>
-      </div>
-
-      {/* --- PROJECT HISTORY --- */}
-      <div style={cardStyle}>
-        <h2 style={{ marginBottom: '20px' }}>📁 Project Submissions</h2>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 10px', marginTop: '20px' }}>
-            <thead>
-              <tr><th style={thStyle}>Project Title</th><th style={thStyle}>Domain</th><th style={thStyle}>Tech Stack</th><th style={thStyle}>Course / Category</th><th style={thStyle}>Database</th><th style={{ ...thStyle, textAlign: 'center' }}>Actions</th></tr>
-            </thead>
-            <tbody>
-              {projects.length > 0 ? projects.map((p) => (
-                <tr key={p.id}>
-                  <td style={{ ...tdStyle, borderTopLeftRadius: '15px', borderBottomLeftRadius: '15px', fontWeight: 'bold' }}>{p.title}</td>
-                  <td style={tdStyle}>
-                    <span style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' }}>
-                      {p.domain}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>{p.tech_stack || "Not Specified"}</td>
-                  <td style={tdStyle}>{p.course_name || "General"}</td>
-                  <td style={tdStyle}>{p.database_type || "N/A"}</td>
-                  <td style={{ ...tdStyle, borderTopRightRadius: '15px', borderBottomRightRadius: '15px', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                      <button 
-                        onClick={() => {
-                            console.log("Button Triggered"); // Quick test
-                            viewProjectAnalysis(p);
-                          }}
-                        style={{ 
-                          background: '#22c55e', 
-                          color: 'white', 
-                          padding: '8px 16px', 
-                          borderRadius: '8px', 
-                          fontSize: '13px', 
-                          fontWeight: '600', 
-                          border: 'none', 
-                          cursor: 'pointer' 
-                        }}
-                      >
-                        Analyze
-                      </button>
-                      <button 
-                        onClick={() => handleDownload(p.id, p.title)} 
-                        style={{ background: '#0ea5e9', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', border: 'none', cursor: 'pointer' }}
-                      >
-                        Download
-                      </button>
-                      <button 
-                        onClick={() => deleteProject(p.id)} 
-                        style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan="6" style={{ ...tdStyle, textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                    No projects found in your history.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          <div style={{ display: "flex", justifyContent: "center", marginTop: "20px", gap: "10px" }}>
-            <button
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              style={{ ...btnPrimary, padding: "8px 16px", fontSize: "14px" }}
-            >
-              ← Previous
-            </button>
-
-            <span style={{ color: "#cbd5e0", padding: "8px 16px" }}>
-              Page {currentPage} of {totalPages}
-            </span>
-
-            <button
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              style={{ ...btnPrimary, padding: "8px 16px", fontSize: "14px" }}
-            >
-              Next →
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <footer className="dashboard-footer">
-        <p>© 2026 AI Code Analyzer • Developed for Code Quality</p>
-      </footer>
-
-      {/* CODE MODAL */}
-      {selectedCode && (
-        <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:10000, backdropFilter:'blur(8px)'}} onClick={()=>setSelectedCode(null)}>
-            <div style={{background:'white', padding:'2.5rem', width:'90%', maxWidth:'950px', borderRadius:'24px', animation:'modalScaleIn 0.3s forwards'}} onClick={e=>e.stopPropagation()}>
-                <div style={{display:'flex', justifyContent:'space-between', borderBottom:'2px solid #e2e8f0', paddingBottom:'1rem', marginBottom:'1rem'}}>
-                    <h2 style={{color:'#1e293b'}}>
-                      {editMode ? "📝 Edit Code" : "👁️ Code Viewer"}
-                    </h2>
-                    <div style={{display:'flex', gap:'10px'}}>
-                      {!editMode ? (
-                        <button onClick={()=>setEditMode(true)} style={{...btnPrimary, background:'#f59e0b'}}>Edit Code</button>
-                      ) : (
-                        <button onClick={handleSave} style={{...btnPrimary, background:'#16a34a'}}>Save & Resubmit</button>
-                      )}
-                      <button
-                        onClick={async () => {
-                          try {
-                            const res = await API.post("/code/share/generate", {
-                              submission_id: selectedCode.id,
-                              type: "view"
-                            });
-
-                            const link = res.data.link;
-
-                            await navigator.clipboard.writeText(link);
-
-                            alert("✅ Link copied to clipboard!");
-
-                          } catch (err) {
-                            alert("❌ Failed to copy link");
-                          }
-                        }}
-                        style={{ ...btnPrimary, background: "#0ea5e9" }}
-                      >
-                        🔗 Share
-                      </button>
-                      <button onClick={()=>setSelectedCode(null)} style={{...btnPrimary, background:'#64748b'}}>Close</button>
-                    </div>
-                </div>
-                
-                <div style={{ display: "flex", gap: "20px" }}>
-
-                        {/* LEFT - EDITOR */}
-                        <div style={{
-                          width: editMode ? "65%" : "100%",
-                          background: "#1e1e2f",
-                          padding: "1rem",
-                          borderRadius: "16px"
+              </thead>
+              <tbody>
+                {showDeleted ? (
+                  deletedFiles.map(item => (
+                    <tr key={item.original_id} style={{ borderBottom: `1px solid ${themeColors.border}` }}>
+                      <td style={{ padding: '16px' }}>🗑️</td>
+                      <td style={{ padding: '16px', fontWeight: '500', color: themeColors.textPrimary }}>{item.file_name}</td>
+                      <td style={{ padding: '16px', color: themeColors.textSecondary }}>{item.language}</td>
+                      <td style={{ padding: '16px', color: themeColors.textSecondary }}>{new Date(item.deleted_at).toLocaleString()}</td>
+                      <td style={{ padding: '16px', textAlign: 'center' }}>
+                        <span style={{ background: themeColors.danger, color: 'white', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: '600' }}>
+                          DELETED
+                        </span>
+                      </td>
+                      <td style={{ padding: '16px', textAlign: 'center' }}>
+                        <button onClick={() => downloadFile(item.original_id)} style={actionButtonStyle(themeColors, themeColors.info)}>
+                          <FontAwesomeIcon icon={faDownload} /> Download
+                        </button>
+                        <button onClick={() => undoDelete(item.original_id)} style={actionButtonStyle(themeColors, themeColors.success)}>
+                          ↺ Undo
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  currentItems.map(item => (
+                    <tr key={item.id} style={{ borderBottom: `1px solid ${themeColors.border}`, transition: 'background 0.2s' }}>
+                      <td style={{ padding: '16px' }}>
+                        <span style={{ 
+                          background: themeColors.accentGlow, 
+                          padding: '4px 10px', 
+                          borderRadius: '6px', 
+                          fontSize: '12px',
+                          color: themeColors.accent
                         }}>
-                          {editMode ? (
-                            <textarea
-                              value={editedCode}
-                              onChange={(e) => setEditedCode(e.target.value)}
-                              style={{
-                                width: "100%",
-                                height: "50vh",
-                                background: "transparent",
-                                color: "#e2e8f0",
-                                border: "none",
-                                outline: "none",
-                                fontFamily: "monospace"
-                              }}
-                            />
-                          ) : (
-                            <pre style={{ color: "#e2e8f0" }}>{selectedCode.code}</pre>
-                          )}
-                        </div>
-
-                        {/* RIGHT - LIVE ANALYSIS */}
-                        {editMode && (
-                          <div style={{
-                            width: "35%",
-                            background: "#ffffff",
-                            color: "#111",
-                            padding: "15px",
-                            borderRadius: "16px",
-                            overflowY: "auto",
-                            maxHeight: "50vh"
-                          }}>
-                          <h3 style={{
-                            fontSize: "18px",
-                            fontWeight: "700",
-                            borderBottom: "2px solid #000",
-                            paddingBottom: "6px",
-                            marginBottom: "12px"
-                          }}>
-                            <FontAwesomeIcon icon={faShuffle} /> Code Impact Analysis
-                          </h3>
-                          <button
-                            onClick={runAIAnalysis}
-                            style={{
-                              width: "100%",
-                              padding: "8px",
-                              marginBottom: "10px",
-                              background: "#000",
-                              color: "#fff",
-                              border: "none",
-                              borderRadius: "8px",
-                              cursor: "pointer"
-                            }}
-                          >
-                            {loadingAI ? "Analyzing..." : "AI Analyze"}
-                          </button>
-
-                            {liveAnalysis.length === 0 ? (
-                              <p style={{ color: "#666" }}>No changes detected</p>
-                            ) : (
-                            liveAnalysis.map((item, i) => (
-                              <div
-                                key={i}
-                                style={{
-                                  border: "1px solid #ddd",
-                                  borderLeft:
-                                    item.severity === "CRITICAL"
-                                      ? "5px solid #000"
-                                      : item.severity === "HIGH"
-                                      ? "5px solid #333"
-                                      : item.severity === "MEDIUM"
-                                      ? "5px dashed #000"
-                                      : "5px solid #999",
-                                  padding: "14px",
-                                  marginBottom: "12px",
-                                  borderRadius: "12px",
-                                  background: "#fff"
-                                }}
-                              >
-
-                                {/* HEADER */}
-                                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                  <strong>
-                                    <FontAwesomeIcon icon={faCode} /> {item.title || item.type}
-                                  </strong>
-                                  <span style={{
-                                    fontSize: "11px",
-                                    border: "1px solid #000",
-                                    padding: "2px 6px",
-                                    borderRadius: "6px"
-                                  }}>
-                                    {item.severity}
-                                  </span>
-                                </div>
-
-                                <p style={{ fontSize: "12px", color: "#666" }}>
-                                  Line {item.line}
-                                </p>
-
-                                {/* WHAT CHANGED */}
-                                {item.whatChanged && (
-                                  <p style={{ margin: "6px 0" }}>
-                                    <b>What Changed:</b><br />
-                                    {item.whatChanged}
-                                  </p>
-                                )}
-
-                                {/* IMPACT */}
-                                {item.impact && (
-                                  <div style={{ margin: "6px 0" }}>
-                                    <b>Impact:</b>
-                                    <ul style={{ paddingLeft: "18px", marginTop: "4px" }}>
-                                      {item.impact.map((imp, idx) => (
-                                        <li key={idx}>{imp}</li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-
-                                {/* SCENARIO */}
-                                {item.scenario && (
-                                  <p style={{ margin: "6px 0" }}>
-                                    <b>Real Scenario:</b><br />
-                                    {item.scenario}
-                                  </p>
-                                )}
-
-                                {/* FIX */}
-                                <p style={{
-                                  marginTop: "8px",
-                                  paddingTop: "6px",
-                                  borderTop: "1px solid #eee"
-                                }}>
-                                  <b>Fix:</b> {item.suggestion}
-                                </p>
-
-                              </div>
-                            ))  
-                            )}
-                            {/* AI ANALYSIS RESULT */}
-{aiAnalysis.length > 0 && (
-  <div style={{ marginTop: "15px" }}>
-    <h4 style={{ marginBottom: "8px" }}>AI Analysis</h4>
-
-    {aiAnalysis.map((item, i) => (
-      <div key={i} style={{
-        border: "1px solid #000",
-        padding: "10px",
-        marginBottom: "10px",
-        borderRadius: "10px"
-      }}>
-        <strong>{item.title}</strong> ({item.severity})
-
-        <p><b>What Changed:</b> {item.whatChanged}</p>
-
-        <ul>
-          {item.impact?.map((imp, idx) => (
-            <li key={idx}>{imp}</li>
-          ))}
-        </ul>
-
-        <p><b>Scenario:</b> {item.scenario}</p>
-        <p><b>Fix:</b> {item.suggestion}</p>
-      </div>
-    ))}
-  </div>
-)}
+                          {item.language}
+                        </span>
+                      </td>
+                      <td style={{ padding: '16px', fontWeight: '500', color: themeColors.textPrimary }}>{item.file_name || "Snippet"}</td>
+                      <td style={{ padding: '16px', color: themeColors.textSecondary, fontSize: '13px' }}>{new Date(item.created_at).toLocaleDateString()}</td>
+                      <td style={{ padding: '16px' }}>
+                        <span style={{
+                          padding: "4px 12px",
+                          borderRadius: "20px",
+                          fontSize: "11px",
+                          fontWeight: "600",
+                          background: item.status === "approved" ? themeColors.success : 
+                                      item.status === "rejected" ? themeColors.danger : themeColors.warning,
+                          color: "white"
+                        }}>
+                          {item.status === "approved" ? "✓ Approved" : item.status === "rejected" ? "✗ Rejected" : "⏳ Pending"}
+                        </span>
+                        {item.status === "rejected" && item.rejection_reason && (
+                          <div style={{ fontSize: "11px", color: themeColors.danger, marginTop: "5px" }}>
+                            {item.rejection_reason}
                           </div>
                         )}
-
-                </div>
-                {/* 💬 COMMENTS SECTION */}
-                  <div style={{
-                    marginTop: "20px",
-                    background: "#f8fafc",
-                    padding: "15px",
-                    borderRadius: "12px",
-                    maxHeight: "200px",
-                    overflowY: "auto"
-                  }}>
-                    <h3 style={{ marginBottom: "10px", color: "#1e293b" }}>💬 Comments</h3>
-
-                    {comments.length === 0 ? (
-                      <p style={{ color: "#64748b" }}>No comments yet</p>
-                    ) : (
-                      comments.map((c) => (
-                        <div key={c.id} style={{
-                          padding: "8px",
-                          marginBottom: "8px",
-                          background: "#fff",
-                          borderRadius: "8px"
-                        }}>
-                          <strong style={{ color: c.role === "admin" ? "red" : "#2563eb" }}>
-                            {c.name}
-                          </strong>
-                          <p style={{ margin: "4px 0", color: "#334155" }}>
-                            {c.comment}
-                          </p>
+                      </td>
+                      <td style={{ padding: '16px', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                          <button onClick={() => viewCode(item.id)} style={actionButtonStyle(themeColors, themeColors.info)}>
+                            <FontAwesomeIcon icon={faEye} /> View
+                          </button>
+                          <button onClick={() => deleteCode(item.id)} style={actionButtonStyle(themeColors, themeColors.danger)}>
+                            <FontAwesomeIcon icon={faTrash} /> Delete
+                          </button>
+                          <button 
+                            onClick={() => analyzeCode(item.id)} 
+                            style={{ ...actionButtonStyle(themeColors, themeColors.success), opacity: isAnalyzing || item.status !== "approved" ? 0.5 : 1 }}
+                            disabled={isAnalyzing || item.status !== "approved"}
+                          >
+                            {isAnalyzing ? <span className="spinner-small"></span> : <FontAwesomeIcon icon={faChartLine} />}
+                            Analyze
+                          </button>
                         </div>
-                      ))
-                    )}
-                  </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Pagination */}
+          {!showDeleted && (
+            <div style={{ display: "flex", justifyContent: "center", marginTop: "24px", gap: "12px" }}>
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                style={paginationButtonStyle(themeColors, currentPage === 1)}
+              >
+                ← Previous
+              </button>
+              <span style={{ color: themeColors.textSecondary, padding: "8px 16px" }}>
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                style={paginationButtonStyle(themeColors, currentPage === totalPages)}
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </div>
 
-                  {/* ✍️ ADD COMMENT */}
-                  <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
-                    <input
-                      type="text"
-                      placeholder="Write a comment..."
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
+        {/* PROJECT HISTORY SECTION */}
+        <div style={{ 
+          background: themeColors.cardBg, 
+          border: `1px solid ${themeColors.border}`, 
+          borderRadius: '24px', 
+          padding: '28px'
+        }}>
+          <h2 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: themeColors.textPrimary }}>
+            <FontAwesomeIcon icon={faCode} color={themeColors.success} /> Project Submissions
+          </h2>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: `2px solid ${themeColors.border}` }}>
+                  <th style={{ padding: '16px', textAlign: 'left', color: themeColors.textSecondary, fontSize: '12px', fontWeight: '600' }}>Project Title</th>
+                  <th style={{ padding: '16px', textAlign: 'left', color: themeColors.textSecondary, fontSize: '12px', fontWeight: '600' }}>Domain</th>
+                  <th style={{ padding: '16px', textAlign: 'left', color: themeColors.textSecondary, fontSize: '12px', fontWeight: '600' }}>Tech Stack</th>
+                  <th style={{ padding: '16px', textAlign: 'left', color: themeColors.textSecondary, fontSize: '12px', fontWeight: '600' }}>Course</th>
+                  <th style={{ padding: '16px', textAlign: 'center', color: themeColors.textSecondary, fontSize: '12px', fontWeight: '600' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {projects.length > 0 ? projects.map((p) => (
+                  <tr key={p.id} style={{ borderBottom: `1px solid ${themeColors.border}` }}>
+                    <td style={{ padding: '16px', fontWeight: '600', color: themeColors.textPrimary }}>{p.title}</td>
+                    <td style={{ padding: '16px' }}>
+                      <span style={{ 
+                        background: themeColors.accentGlow, 
+                        color: themeColors.accent, 
+                        padding: '4px 10px', 
+                        borderRadius: '6px', 
+                        fontSize: '12px', 
+                        fontWeight: '600' 
+                      }}>
+                        {p.domain}
+                      </span>
+                    </td>
+                    <td style={{ padding: '16px', color: themeColors.textSecondary }}>{p.tech_stack || "Not Specified"}</td>
+                    <td style={{ padding: '16px', color: themeColors.textSecondary }}>{p.course_name || "General"}</td>
+                    <td style={{ padding: '16px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button onClick={() => viewProjectAnalysis(p)} style={actionButtonStyle(themeColors, themeColors.success)}>
+                          <FontAwesomeIcon icon={faChartLine} /> Analyze
+                        </button>
+                        <button onClick={() => handleDownload(p.id, p.title)} style={actionButtonStyle(themeColors, themeColors.info)}>
+                          <FontAwesomeIcon icon={faDownload} /> Download
+                        </button>
+                        <button onClick={() => deleteProject(p.id)} style={actionButtonStyle(themeColors, themeColors.danger)}>
+                          <FontAwesomeIcon icon={faTrash} /> Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan="5" style={{ padding: '60px', textAlign: 'center', color: themeColors.textSecondary }}>
+                      <FontAwesomeIcon icon={faCode} size="2x" style={{ marginBottom: '12px', opacity: 0.5 }} />
+                      <p>No projects found in your history.</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+
+      {/* CODE VIEW MODAL */}
+      {selectedCode && (
+        <div style={modalOverlayStyle} onClick={() => setSelectedCode(null)}>
+          <div style={{ ...modalContentStyle, maxWidth: '1200px', width: '90%' }} onClick={e => e.stopPropagation()}>
+            <div style={modalHeaderStyle(themeColors)}>
+              <div>
+                <h2 style={{ margin: 0, color: themeColors.textPrimary }}>
+                  {editMode ? "✏️ Edit Code" : "👁️ Code Viewer"}
+                </h2>
+                <p style={{ margin: '4px 0 0 0', color: themeColors.textSecondary, fontSize: '13px' }}>
+                  {selectedCode.file_name}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {!editMode ? (
+                  <button onClick={() => setEditMode(true)} style={buttonStyle(themeColors, themeColors.warning)}>
+                    ✏️ Edit Code
+                  </button>
+                ) : (
+                  <button onClick={handleSave} style={buttonStyle(themeColors, themeColors.success)}>
+                    💾 Save & Resubmit
+                  </button>
+                )}
+                <button onClick={async () => {
+                  try {
+                    const res = await API.post("/code/share/generate", {
+                      submission_id: selectedCode.id,
+                      type: "view"
+                    });
+                    await navigator.clipboard.writeText(res.data.link);
+                    alert("✅ Link copied to clipboard!");
+                  } catch (err) {
+                    alert("❌ Failed to copy link");
+                  }
+                }} style={buttonStyle(themeColors, themeColors.info)}>
+                  <FontAwesomeIcon icon={faShare} /> Share
+                </button>
+                <button onClick={() => setSelectedCode(null)} style={buttonStyle(themeColors, themeColors.textSecondary)}>
+                  Close
+                </button>
+              </div>
+            </div>
+            
+            <div style={{ display: "flex", gap: "20px", padding: "24px", flexWrap: "wrap" }}>
+              {/* LEFT - EDITOR */}
+              <div style={{ flex: editMode ? "2" : "1", minWidth: "300px" }}>
+                <div style={{ 
+                  background: themeColors.background, 
+                  padding: "16px", 
+                  borderRadius: "16px",
+                  border: `1px solid ${themeColors.border}`
+                }}>
+                  {editMode ? (
+                    <textarea
+                      value={editedCode}
+                      onChange={(e) => setEditedCode(e.target.value)}
                       style={{
-                        flex: 1,
-                        padding: "10px",
-                        borderRadius: "8px",
-                        border: "1px solid #ccc"
+                        width: "100%",
+                        minHeight: "400px",
+                        background: "transparent",
+                        color: themeColors.textPrimary,
+                        border: "none",
+                        outline: "none",
+                        fontFamily: "'Fira Code', monospace",
+                        fontSize: "13px",
+                        lineHeight: "1.6",
+                        resize: "vertical"
                       }}
                     />
+                  ) : (
+                    <pre style={{ 
+                      margin: 0, 
+                      color: themeColors.textPrimary, 
+                      fontFamily: "'Fira Code', monospace", 
+                      fontSize: "13px",
+                      lineHeight: "1.6",
+                      whiteSpace: "pre-wrap"
+                    }}>
+                      {selectedCode.code}
+                    </pre>
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT - LIVE ANALYSIS */}
+              {editMode && (
+                <div style={{ flex: "1", minWidth: "280px" }}>
+                  <div style={{ 
+                    background: themeColors.background, 
+                    padding: "16px", 
+                    borderRadius: "16px",
+                    border: `1px solid ${themeColors.border}`,
+                    maxHeight: "500px",
+                    overflowY: "auto"
+                  }}>
+                    <h3 style={{ marginBottom: "12px", display: 'flex', alignItems: 'center', gap: '8px', color: themeColors.textPrimary }}>
+                      <FontAwesomeIcon icon={faShuffle} /> Code Impact Analysis
+                    </h3>
                     <button
-                      onClick={addComment}
+                      onClick={runAIAnalysis}
                       style={{
-                        background: "#2563eb",
-                        color: "white",
-                        padding: "10px 15px",
-                        borderRadius: "8px",
+                        width: "100%",
+                        padding: "10px",
+                        marginBottom: "16px",
+                        background: `linear-gradient(135deg, ${themeColors.accent}, #4c51bf)`,
+                        color: "#fff",
                         border: "none",
-                        cursor: "pointer"
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        fontWeight: "600"
                       }}
                     >
-                      Send
+                      {loadingAI ? "⏳ Analyzing..." : "🤖 AI Analyze"}
                     </button>
+
+                    {liveAnalysis.length === 0 && aiAnalysis.length === 0 ? (
+                      <p style={{ color: themeColors.textSecondary, textAlign: 'center', padding: '20px' }}>
+                        No changes detected
+                      </p>
+                    ) : (
+                      <>
+                        {liveAnalysis.map((item, i) => (
+                          <div key={i} style={analysisItemStyle(themeColors, item.severity)}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                              <strong style={{ color: themeColors.textPrimary }}>{item.title || item.type}</strong>
+                              <span style={severityBadgeStyle(themeColors, item.severity)}>{item.severity}</span>
+                            </div>
+                            <p style={{ fontSize: "12px", color: themeColors.textSecondary }}>Line {item.line}</p>
+                            {item.whatChanged && (
+                              <p style={{ margin: "6px 0", fontSize: "13px" }}>
+                                <strong>What Changed:</strong><br />
+                                {item.whatChanged}
+                              </p>
+                            )}
+                            {item.impact && (
+                              <div style={{ margin: "6px 0" }}>
+                                <strong>Impact:</strong>
+                                <ul style={{ margin: "4px 0 0 16px", color: themeColors.textSecondary }}>
+                                  {item.impact.map((imp, idx) => <li key={idx}>{imp}</li>)}
+                                </ul>
+                              </div>
+                            )}
+                            {item.scenario && (
+                              <p style={{ margin: "6px 0", fontSize: "13px" }}>
+                                <strong>Real Scenario:</strong><br />
+                                {item.scenario}
+                              </p>
+                            )}
+                            <p style={{ marginTop: "8px", paddingTop: "6px", borderTop: `1px solid ${themeColors.border}` }}>
+                              <strong>Fix:</strong> {item.suggestion}
+                            </p>
+                          </div>
+                        ))}
+                        
+                        {aiAnalysis.map((item, i) => (
+                          <div key={`ai-${i}`} style={analysisItemStyle(themeColors, item.severity)}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                              <strong style={{ color: themeColors.textPrimary }}>🤖 {item.title}</strong>
+                              <span style={severityBadgeStyle(themeColors, item.severity)}>{item.severity}</span>
+                            </div>
+                            <p><strong>What Changed:</strong> {item.whatChanged}</p>
+                            <ul style={{ margin: "4px 0 0 16px", color: themeColors.textSecondary }}>
+                              {item.impact?.map((imp, idx) => <li key={idx}>{imp}</li>)}
+                            </ul>
+                            <p><strong>Scenario:</strong> {item.scenario}</p>
+                            <p><strong>Fix:</strong> {item.suggestion}</p>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
-                <button onClick={()=>downloadFile(selectedCode.id)} style={{...btnPrimary, marginTop:'1rem'}}>Download Original</button>
+                </div>
+              )}
             </div>
+
+            {/* COMMENTS SECTION */}
+            <div style={{ padding: "0 24px 24px 24px" }}>
+              <div style={{ 
+                background: themeColors.bgInner, 
+                padding: "16px", 
+                borderRadius: "12px",
+                marginBottom: "16px",
+                maxHeight: "150px",
+                overflowY: "auto"
+              }}>
+                <h3 style={{ marginBottom: "12px", fontSize: "14px", display: 'flex', alignItems: 'center', gap: '8px', color: themeColors.textPrimary }}>
+                  <FontAwesomeIcon icon={faComment} /> Comments ({comments.length})
+                </h3>
+                {comments.length === 0 ? (
+                  <p style={{ color: themeColors.textSecondary, fontSize: "13px" }}>No comments yet</p>
+                ) : (
+                  comments.map((c) => (
+                    <div key={c.id} style={{
+                      padding: "10px",
+                      marginBottom: "8px",
+                      background: themeColors.cardBg,
+                      borderRadius: "8px",
+                      border: `1px solid ${themeColors.border}`
+                    }}>
+                      <strong style={{ color: c.role === "admin" ? themeColors.danger : themeColors.accent }}>
+                        {c.name}
+                      </strong>
+                      <p style={{ margin: "4px 0 0 0", color: themeColors.textSecondary, fontSize: "13px" }}>
+                        {c.comment}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div style={{ position: "relative" }}>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  
+                  <input
+                    type="text"
+                    placeholder="Write a comment..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: "12px",
+                      borderRadius: "10px",
+                      border: `1px solid ${themeColors.border}`,
+                      background: themeColors.background,
+                      color: themeColors.textPrimary
+                    }}
+                  />
+
+                  {/* 😊 EMOJI BUTTON */}
+                  <button
+                    onClick={() => setShowEmoji(!showEmoji)}
+                    style={{
+                      padding: "0 14px",
+                      fontSize: "18px",
+                      borderRadius: "10px",
+                      border: `1px solid ${themeColors.border}`,
+                      background: themeColors.cardBg,
+                      cursor: "pointer"
+                    }}
+                  >
+                    😊
+                  </button>
+
+                  {/* SEND BUTTON */}
+                  <button onClick={addComment} style={buttonStyle(themeColors, themeColors.accent)}>
+                    <FontAwesomeIcon icon={faPaperPlane} /> Send
+                  </button>
+                </div>
+
+                {/* 🔥 EMOJI PICKER */}
+                {showEmoji && (
+                  <div style={{
+                    position: "absolute",
+                    bottom: "100%",
+                    right: 0,
+                    marginBottom: "10px",
+                    zIndex: 1000
+                  }}>
+                    <EmojiPicker onEmojiClick={onEmojiClick} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ padding: "0 24px 24px 24px" }}>
+              <button onClick={() => downloadFile(selectedCode.id)} style={buttonStyle(themeColors, themeColors.info)}>
+                <FontAwesomeIcon icon={faDownload} /> Download Original
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* ANALYSIS MODAL */}
-      {/* --- NEW UPDATED ANALYSIS MODAL --- */}
       {analysisResult && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(10px)' }} onClick={() => setAnalysisResult(null)}>
-          <div style={{ background: 'white', width: '95%', maxWidth: '1200px', height: '90vh', borderRadius: '28px', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'modalScaleIn 0.3s ease' }} onClick={e => e.stopPropagation()}>
-            
-            {/* Modal Header */}
-            <div style={{ padding: '1.5rem 2.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+        <div style={modalOverlayStyle} onClick={() => setAnalysisResult(null)}>
+          <div style={{ ...modalContentStyle, maxWidth: '1400px', width: '95%', maxHeight: '90vh', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <div style={modalHeaderStyle(themeColors)}>
               <div>
-                <h2 style={{ color: '#1e293b', margin: 0 }}>🚀 Code Analysis Report</h2>
-                <p style={{ color: '#64748b', margin: '4px 0 0 0' }}>Score calculated based on security and best practices</p>
+                <h2 style={{ margin: 0, color: themeColors.textPrimary }}>🚀 Code Analysis Report</h2>
+                <p style={{ margin: '4px 0 0 0', color: themeColors.textSecondary }}>Score calculated based on security and best practices</p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-
-                  {/* 🔥 VERSION DROPDOWN */}
-                  <select
-                    value={selectedVersion?.version || ""}
-                    onChange={(e) => {
-                      const v = versions.find(v => v.version == e.target.value);
-                      setSelectedVersion(v);
-                    }}
-                    style={{
-                      padding: "8px",
-                      borderRadius: "10px",
-                      border: "1px solid #ccc"
-                    }}
-                  >
-                    {versions.map(v => (
-                      <option key={v.version} value={v.version}>
-                        Version {v.version}
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* SCORE */}
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '28px', fontWeight: '900', color: '#16a34a' }}>
-                      {selectedVersion?.score || analysisResult.score}/100
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>
-                      FINAL QUALITY SCORE
-                    </div>
+                <select
+                  value={selectedVersion?.version || ""}
+                  onChange={(e) => {
+                    const v = versions.find(v => v.version == e.target.value);
+                    setSelectedVersion(v);
+                  }}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    border: `1px solid ${themeColors.border}`,
+                    background: themeColors.cardBg,
+                    color: themeColors.textPrimary
+                  }}
+                >
+                  {versions.map(v => (
+                    <option key={v.version} value={v.version}>Version {v.version}</option>
+                  ))}
+                </select>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '28px', fontWeight: '900', color: themeColors.success }}>
+                    {(selectedVersion?.score || analysisResult.score)}/100
+                  </div>
+                  <div style={{ fontSize: '11px', color: themeColors.textSecondary, fontWeight: 'bold' }}>
+                    QUALITY SCORE
                   </div>
                 </div>
-                <button onClick={() => setAnalysisResult(null)} style={{ background: '#f1f5f9', border: 'none', padding: '10px 15px', borderRadius: '12px', cursor: 'pointer', fontSize: '20px' }}>×</button>
+                <button onClick={() => setAnalysisResult(null)} style={closeButtonStyle(themeColors)}>×</button>
               </div>
             </div>
 
-            {/* Modal Body: Two Columns */}
-            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-              
-              {/* Left Column: Code Preview */}
-              <div style={{ flex: 1.2, background: '#1e1e1e', padding: '20px', overflow: 'auto' }}>
-                <div style={{ color: '#858585', fontSize: '12px', marginBottom: '10px', fontWeight: 'bold' }}>SOURCE CODE PREVIEW</div>
-                <pre style={{ margin: 0, color: '#d4d4d4', fontFamily: 'monospace', fontSize: '14px', lineHeight: '1.6' }}>
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1.2, background: themeColors.background, padding: '24px', overflow: 'auto', minWidth: '300px' }}>
+                <div style={{ color: themeColors.textSecondary, fontSize: '11px', marginBottom: '12px', fontWeight: 'bold' }}>SOURCE CODE PREVIEW</div>
+                <pre style={{ margin: 0, color: themeColors.textPrimary, fontFamily: "'Fira Code', monospace", fontSize: '13px', lineHeight: '1.6' }}>
                   <code>{selectedVersion?.code || analysisResult.code}</code>
                 </pre>
-                {/* 🏆 FILE REWARD */}
-                  {analysisResult.rewards && (
-                    <RewardCard 
-                      data={analysisResult.rewards} 
-                      title="🏆 File Rewards"
-                    />
-                  )}
+                {analysisResult.rewards && (
+                  <RewardCard data={analysisResult.rewards} title="🏆 File Rewards" />
+                )}
               </div>
-             
 
-              {/* Right Column: Issues & Suggestions */}
-              <div style={{ flex: 1, padding: '25px', overflowY: 'auto', background: '#fff', borderLeft: '1px solid #e2e8f0' }}>
-                <h3 style={{ color: '#1e293b', marginTop: 0 }}>Detected Issues ({analysisResult.issues.length})</h3>
+              <div style={{ flex: 1, padding: '24px', overflowY: 'auto', background: themeColors.cardBg, borderLeft: `1px solid ${themeColors.border}`, minWidth: '350px' }}>
+                <h3 style={{ color: themeColors.textPrimary, marginTop: 0 }}>
+                  Detected Issues ({(selectedVersion?.issues || analysisResult.issues).length})
+                </h3>
                 
                 {(selectedVersion?.issues || analysisResult.issues).map((issue, idx) => (
-                  <div key={idx} style={{ marginBottom: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                    <div style={{ padding: '12px 16px', background: issue.type === 'CRITICAL' ? '#fef2f2' : '#fffbeb', borderLeft: `6px solid ${issue.type === 'CRITICAL' ? '#ef4444' : '#f59e0b'}`, display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{issue.title}</span>
-                      <span style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '13px' }}>-{issue.penalty}</span>
+                  <div key={idx} style={issueCardStyle(themeColors, issue.type)}>
+                    <div style={{ 
+                      padding: '12px 16px', 
+                      background: issue.type === 'CRITICAL' ? 'rgba(245, 101, 101, 0.1)' : 'rgba(237, 137, 54, 0.1)',
+                      borderLeft: `4px solid ${issue.type === 'CRITICAL' ? themeColors.danger : themeColors.warning}`,
+                      display: 'flex', 
+                      justifyContent: 'space-between' 
+                    }}>
+                      <span style={{ fontWeight: 'bold', color: themeColors.textPrimary }}>{issue.title}</span>
+                      <span style={{ color: themeColors.danger, fontWeight: 'bold', fontSize: '12px' }}>-{issue.penalty}</span>
                     </div>
-                    <div style={{ padding: '12px 16px', background: '#f8fafc' }}>
-                      <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>💡 SUGGESTED FIX:</div>
-                      <div style={{ color: '#334155', fontSize: '14px', fontStyle: 'italic' }}>{issue.suggestion}</div>
+                    <div style={{ padding: '12px 16px', background: themeColors.bgInner }}>
+                      <div style={{ color: themeColors.textSecondary, fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>💡 SUGGESTED FIX:</div>
+                      <div style={{ color: themeColors.textSecondary, fontSize: '13px', fontStyle: 'italic' }}>{issue.suggestion}</div>
                     </div>
                   </div>
                 ))}
-                {/* 🏆 FILE REWARD
-                  {analysisResult.rewards && (
-                    <RewardCard 
-                      data={analysisResult.rewards} 
-                      title="🏆 File Rewards"
-                    />
-                  )} */}
               </div>
             </div>
 
-            {/* --- ADD THE PROJECT ANALYSIS MODAL HERE --- */}
-     
-      
-            {/* Modal Footer */}
-            <div style={{ padding: '1.5rem 2.5rem', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', gap: '15px' }}>
-              <button onClick={copyIssues} style={{ ...btnPrimary, flex: 1, background: '#0ea5e9' }}>Copy Issues</button>
-              <button onClick={exportReport} style={{ ...btnPrimary, flex: 1, background: '#22c55e' }}>Download PDF Report</button>
-                {/* <button
-                  onClick={async () => {
-                    try {
-                      
-                      const res = await API.post("/code/share/generate", {
-                         submission_id: selectedCode?.id, // ✅ correct
-                        type: "analyze"
-                      });
-
-                      const link = res.data.link;
-
-                      await navigator.clipboard.writeText(link);
-
-                      alert("✅ Report link copied!");
-
-                    } catch (err) {
-                      alert("❌ Failed to copy link");
-                    }
-                  }}
-                  style={{ ...btnPrimary, background: "#0ea5e9" }}
-                >
-                  🔗 Share Report
-                </button> */}
-              <button onClick={() => setAnalysisResult(null)} style={{ ...btnPrimary, flex: 1, background: '#64748b' }}>Done</button>
+            <div style={{ padding: '20px 24px', borderTop: `1px solid ${themeColors.border}`, display: 'flex', gap: '12px' }}>
+              <button onClick={copyIssues} style={{ ...buttonStyle(themeColors, themeColors.info), flex: 1 }}>📋 Copy Issues</button>
+              <button onClick={exportReport} style={{ ...buttonStyle(themeColors, themeColors.success), flex: 1 }}>📄 Download Report</button>
+              <button onClick={() => setAnalysisResult(null)} style={{ ...buttonStyle(themeColors, themeColors.textSecondary), flex: 1 }}>Done</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ADD THE PROJECT ANALYSIS MODAL HERE */}
-      {/* ================= PROJECT ANALYSIS MODAL ================= */}
-{projectAnalysis && (
-  <div
-    style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      width: "100vw",
-      height: "100vh",
-      background: "rgba(0, 0, 0, 0.9)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 100000,
-      backdropFilter: "blur(10px)",
-    }}
-    onClick={() => setProjectAnalysis(null)}
-  >
-    <div
-      style={{
-        background: "#0f172a",
-        width: "90%",
-        maxWidth: "900px",
-        borderRadius: "24px",
-        border: "1px solid #334155",
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-        maxHeight: "90vh",
-        animation: "modalScaleIn 0.3s ease",
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* Header */}
-      <div
-        style={{
-          padding: "20px 30px",
-          background: "#1e293b",
-          borderBottom: "1px solid #334155",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <div>
-          <h2 style={{ margin: 0, color: "#fff" }}>
-            Project Analysis: {projectAnalysis.title}
-          </h2>
-          <span
-            style={{
-              color: "#3b82f6",
-              fontSize: "12px",
-              fontWeight: "bold",
-              textTransform: "uppercase",
-            }}
-          >
-            Type: {projectAnalysis.project_type || "Not Detected"}
-          </span>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div
-            style={{
-              fontSize: "32px",
-              fontWeight: "bold",
-              color:
-                projectAnalysis.score > 70 ? "#22c55e" : "#f59e0b",
-            }}
-          >
-            {projectAnalysis.score || 0}%
-          </div>
-          <div
-            style={{
-              fontSize: "10px",
-              color: "#94a3b8",
-            }}
-          >
-            QUALITY SCORE
-          </div>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div
-        style={{
-          padding: "30px",
-          overflowY: "auto",
-          background: "#0f172a",
-          flex: 1,
-        }}
-      >
-        <h3 style={{ color: "#cbd5e0", marginBottom: "20px" }}>
-          Detection Summary
-        </h3>
-
-        {(() => {
-          const issuesRaw = projectAnalysis.issues;
-          const issues =
-            typeof issuesRaw === "string"
-              ? JSON.parse(issuesRaw)
-              : issuesRaw || [];
-
-          if (issues.length === 0) {
-            return (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "40px",
-                  color: "#22c55e",
-                }}
-              >
-                ✅ No issues detected in this project.
+      {/* PROJECT ANALYSIS MODAL */}
+      {projectAnalysis && (
+        <div style={modalOverlayStyle} onClick={() => setProjectAnalysis(null)}>
+          <div style={{ ...modalContentStyle, maxWidth: '900px', width: '90%', maxHeight: '85vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={modalHeaderStyle(themeColors)}>
+              <div>
+                <h2 style={{ margin: 0, color: themeColors.textPrimary }}>Project Analysis: {projectAnalysis.title}</h2>
+                <span style={{ color: themeColors.accent, fontSize: "11px", fontWeight: "bold", textTransform: "uppercase" }}>
+                  Type: {projectAnalysis.project_type || "Not Detected"}
+                </span>
               </div>
-            );
-          }
-
-          return (
-            <>
-              {issues.map((issue, idx) => (
-                <div
-                  key={`${issue.file || "global"}-${idx}`}
-                  style={{
-                    background: "#1e293b",
-                    borderRadius: "12px",
-                    padding: "15px",
-                    marginBottom: "15px",
-                    borderLeft:
-                      issue.severity === "HIGH"
-                        ? "4px solid #ef4444"
-                        : issue.severity === "MEDIUM"
-                        ? "4px solid #f59e0b"
-                        : "4px solid #64748b",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "6px",
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "#94a3b8",
-                        fontSize: "11px",
-                        fontWeight: "bold",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {issue.category.replace(/_/g, " ")}
-                    </span>
-                    <span
-                      style={{
-                        color:
-                          issue.severity === "HIGH"
-                            ? "#ef4444"
-                            : issue.severity === "MEDIUM"
-                            ? "#f59e0b"
-                            : "#64748b",
-                        fontSize: "11px",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {issue.severity}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      color: "#fff",
-                      fontWeight: "600",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    {issue.message}
-                  </div>
-                  <div
-                    style={{
-                      color: "#94a3b8",
-                      fontSize: "13px",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    💡 {issue.suggestion}
-                  </div>
-                  {issue.file && (
-                    <div
-                      style={{
-                        marginTop: "6px",
-                        fontSize: "11px",
-                        color: "#64748b",
-                      }}
-                    >
-                      File: {issue.file.split("/").pop().split("\\").pop() || "file"}
-                    </div>
-                  )}
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: "28px", fontWeight: "bold", color: projectAnalysis.score > 70 ? themeColors.success : themeColors.warning }}>
+                  {projectAnalysis.score || 0}%
                 </div>
-              ))}
+                <div style={{ fontSize: "10px", color: themeColors.textSecondary }}>QUALITY SCORE</div>
+              </div>
+            </div>
 
-              {/* EXTRA TYPE‑BASED SUGGESTION */}
+            <div style={{ padding: "24px" }}>
+              <h3 style={{ color: themeColors.textPrimary, marginBottom: "16px" }}>Detection Summary</h3>
               {(() => {
-                const pt = projectAnalysis.project_type?.toLowerCase();
-                if (pt === "full_stack") {
+                const issuesRaw = projectAnalysis.issues;
+                const issues = typeof issuesRaw === "string" ? JSON.parse(issuesRaw) : issuesRaw || [];
+
+                if (issues.length === 0) {
                   return (
-                    <div
-                      style={{
-                        marginTop: "20px",
-                        padding: "12px",
-                        background: "#1e293b",
-                        borderRadius: "12px",
-                        color: "#94a3b8",
-                        fontStyle: "italic",
-                        border: "1px solid #334155",
-                      }}
-                    >
-                      💡 Suggested layout: separate backend, frontend, and API layers
+                    <div style={{ textAlign: "center", padding: "60px", color: themeColors.success }}>
+                      <FontAwesomeIcon icon={faCheckCircle} size="2x" style={{ marginBottom: '12px' }} />
+                      <p>✅ No issues detected in this project.</p>
                     </div>
                   );
                 }
-                if (pt === "frontend") {
-                  return (
-                    <div
-                      style={{
-                        marginTop: "20px",
-                        padding: "12px",
-                        background: "#1e293b",
-                        borderRadius: "12px",
-                        color: "#94a3b8",
-                        fontStyle: "italic",
-                        border: "1px solid #334155",
-                      }}
-                    >
-                      💡 Tips: Use components, pages, and layout folders; keep logic in services
-                    </div>
-                  );
-                }
-                if (pt === "backend") {
-                  return (
-                    <div
-                      style={{
-                        marginTop: "20px",
-                        padding: "12px",
-                        background: "#1e293b",
-                        borderRadius: "12px",
-                        color: "#94a3b8",
-                        fontStyle: "italic",
-                        border: "1px solid #334155",
-                      }}
-                    >
-                      💡 Suggested structure: controllers, routes, models, services, validators
-                    </div>
-                  );
-                }
-                return null;
+
+                return (
+                  <>
+                    {issues.map((issue, idx) => (
+                      <div key={idx} style={issueCardStyle(themeColors, issue.severity)}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                          <span style={{ color: themeColors.textSecondary, fontSize: "10px", fontWeight: "bold", textTransform: "uppercase" }}>
+                            {issue.category?.replace(/_/g, " ")}
+                          </span>
+                          <span style={severityBadgeStyle(themeColors, issue.severity)}>{issue.severity}</span>
+                        </div>
+                        <div style={{ color: themeColors.textPrimary, fontWeight: "600", marginBottom: "4px" }}>{issue.message}</div>
+                        <div style={{ color: themeColors.textSecondary, fontSize: "13px", fontStyle: "italic" }}>💡 {issue.suggestion}</div>
+                        {issue.file && (
+                          <div style={{ marginTop: "6px", fontSize: "11px", color: themeColors.textSecondary }}>
+                            File: {issue.file.split("/").pop().split("\\").pop()}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Type-based suggestions */}
+                    {(() => {
+                      const pt = projectAnalysis.project_type?.toLowerCase();
+                      if (pt === "full_stack") {
+                        return (
+                          <div style={tipBoxStyle(themeColors)}>
+                            💡 Suggested layout: separate backend, frontend, and API layers
+                          </div>
+                        );
+                      }
+                      if (pt === "frontend") {
+                        return (
+                          <div style={tipBoxStyle(themeColors)}>
+                            💡 Tips: Use components, pages, and layout folders; keep logic in services
+                          </div>
+                        );
+                      }
+                      if (pt === "backend") {
+                        return (
+                          <div style={tipBoxStyle(themeColors)}>
+                            💡 Suggested structure: controllers, routes, models, services, validators
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </>
+                );
               })()}
-            </>
-          );
-        })()}
-      </div>
+            </div>
 
-      {/* Footer */}
-      <div
-        style={{
-          padding: "20px 30px",
-          background: "#1e293b",
-          textAlign: "right",
-          display: "flex",
-          justifyContent: "flex-end",
-        }}
-      >
-        <button
-          onClick={() => setProjectAnalysis(null)}
-          style={{ ...btnPrimary, background: "#334155" }}
-        >
-          Close Report
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-             {/* DETECTING OVERLAY */}
-      {isAnalyzingProject && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,15,30,0.9)', zIndex: 20000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: '50px', height: '50px', border: '4px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', marginBottom: '20px', animation: 'spin 1s linear infinite' }}></div>
-          <h2 style={{ color: '#fff' }}>SCANNING PROJECT...</h2>
+            <div style={{ padding: "20px 24px", borderTop: `1px solid ${themeColors.border}`, textAlign: "right" }}>
+              <button onClick={() => setProjectAnalysis(null)} style={buttonStyle(themeColors, themeColors.textSecondary)}>
+                Close Report
+              </button>
+            </div>
+          </div>
         </div>
       )}
-     
 
-      
+      {/* Loading Overlay */}
+      {isAnalyzingProject && (
+        <div style={modalOverlayStyle}>
+          <div style={{ textAlign: 'center' }}>
+            <div className="spinner" style={{ width: '50px', height: '50px', border: `4px solid ${themeColors.border}`, borderTop: `4px solid ${themeColors.accent}`, borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '20px' }}></div>
+            <h2 style={{ color: '#fff' }}>SCANNING PROJECT...</h2>
+          </div>
+        </div>
+      )}
     </div>
   );
-   
 }
+
+// Helper style functions
+const actionButtonStyle = (themeColors, bgColor) => ({
+  padding: "6px 12px",
+  background: bgColor,
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontWeight: "600",
+  fontSize: "12px",
+  transition: "transform 0.2s"
+});
+
+const buttonStyle = (themeColors, bgColor) => ({
+  padding: "8px 16px",
+  background: bgColor,
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  cursor: "pointer",
+  fontWeight: "600",
+  fontSize: "13px",
+  transition: "transform 0.2s"
+});
+
+const paginationButtonStyle = (themeColors, disabled) => ({
+  padding: "8px 16px",
+  background: disabled ? themeColors.border : themeColors.accent,
+  color: "white",
+  border: "none",
+  borderRadius: "8px",
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontWeight: "600",
+  opacity: disabled ? 0.5 : 1
+});
+
+const modalOverlayStyle = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(0, 0, 0, 0.9)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 10000,
+  backdropFilter: 'blur(10px)'
+};
+
+const modalContentStyle = {
+  background: '#111122',
+  borderRadius: '24px',
+  border: '1px solid #1a1a2e',
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+  maxHeight: '90vh'
+};
+
+const modalHeaderStyle = (themeColors) => ({
+  padding: '20px 24px',
+  background: themeColors.bgInner,
+  borderBottom: `1px solid ${themeColors.border}`,
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: '16px'
+});
+
+const closeButtonStyle = (themeColors) => ({
+  background: themeColors.border,
+  border: 'none',
+  padding: '8px 16px',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontSize: '20px',
+  color: themeColors.textPrimary
+});
+
+const issueCardStyle = (themeColors, severity) => ({
+  marginBottom: '16px',
+  borderRadius: '12px',
+  border: `1px solid ${themeColors.border}`,
+  overflow: 'hidden'
+});
+
+const severityBadgeStyle = (themeColors, severity) => ({
+  fontSize: "10px",
+  padding: "2px 8px",
+  borderRadius: "12px",
+  fontWeight: "bold",
+  background: severity === "HIGH" || severity === "CRITICAL" ? themeColors.danger :
+              severity === "MEDIUM" ? themeColors.warning : themeColors.textSecondary,
+  color: "white"
+});
+
+const analysisItemStyle = (themeColors, severity) => ({
+  border: `1px solid ${themeColors.border}`,
+  borderLeft: severity === "CRITICAL" ? `4px solid ${themeColors.danger}` :
+               severity === "HIGH" ? `4px solid ${themeColors.warning}` :
+               `4px solid ${themeColors.accent}`,
+  padding: "14px",
+  marginBottom: "12px",
+  borderRadius: "12px",
+  background: themeColors.cardBg
+});
+
+const tipBoxStyle = (themeColors) => ({
+  marginTop: "20px",
+  padding: "12px",
+  background: themeColors.cardBg,
+  borderRadius: "12px",
+  color: themeColors.textSecondary,
+  fontStyle: "italic",
+  border: `1px solid ${themeColors.border}`
+});
 
 export default History;

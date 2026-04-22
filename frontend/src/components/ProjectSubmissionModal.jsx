@@ -86,7 +86,7 @@ const ProjectSubmissionModal = ({ isOpen, onClose, onSuccess }) => {
   const inputStyle = {
     width: "100%",
     padding: "12px 14px",
-    background: themeColors.background,
+    background: themeColors.inputBg,
     border: `1px solid ${themeColors.border}`,
     borderRadius: "10px",
     color: themeColors.textPrimary,
@@ -150,7 +150,7 @@ const ProjectSubmissionModal = ({ isOpen, onClose, onSuccess }) => {
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(10, 10, 26, 0.95)",
+          background: theme === "dark" ? "rgba(10, 10, 26, 0.95)" : "rgba(0, 0, 0, 0.7)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -168,7 +168,7 @@ const ProjectSubmissionModal = ({ isOpen, onClose, onSuccess }) => {
             maxWidth: "650px",
             borderRadius: "24px",
             border: `1px solid ${themeColors.border}`,
-            boxShadow: "0 25px 50px rgba(0,0,0,0.5)",
+            boxShadow: theme === "dark" ? "0 25px 50px rgba(0,0,0,0.5)" : "0 25px 50px rgba(0,0,0,0.15)",
             maxHeight: "90vh",
             overflowY: "auto",
             animation: "modalSlideIn 0.3s ease"
@@ -242,7 +242,7 @@ const ProjectSubmissionModal = ({ isOpen, onClose, onSuccess }) => {
               <div
                 style={{
                   padding: "40px 20px",
-                  background: "rgba(72, 187, 120, 0.1)",
+                  background: `${themeColors.success}20`,
                   borderRadius: "16px",
                   textAlign: "center",
                   border: `1px solid ${themeColors.success}`
@@ -400,7 +400,7 @@ const ProjectSubmissionModal = ({ isOpen, onClose, onSuccess }) => {
                   <div
                     style={{
                       padding: "12px 16px",
-                      background: "rgba(245, 101, 101, 0.1)",
+                      background: `${themeColors.danger}20`,
                       border: `1px solid ${themeColors.danger}`,
                       borderRadius: "10px",
                       marginBottom: "20px",

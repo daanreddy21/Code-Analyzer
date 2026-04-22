@@ -1,6 +1,12 @@
-import React, { useState, useEffect } from "react";
+// src/components/Layout.jsx
+import React, { useState, useEffect, useRef } from "react";
 import Header from "./Header";
 import Footer from "./Footer";
+import MessagePopup from "./MessagePopup";
+import API from "../services/api";
+import socket from "../services/socket";
+import ProjectSubmissionModal from "./ProjectSubmissionModal";
+import { useTheme } from "../context/ThemeContext";
 
 function Layout({ children, navigate }) {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -8,19 +14,17 @@ function Layout({ children, navigate }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
+  const [renderKey, setRenderKey] = useState(0); // ✅ ADDED: Force re-render key
 
-  // 🌙 THEME STATE
-  const [theme, setTheme] = useState(
-    localStorage.getItem("theme") || "dark"
-  );
+  const isFetchingNotif = useRef(false);
+  const isFetchingChat = useRef(false);
 
-  useEffect(() => {
-    document.body.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+  const { theme, toggleTheme, themeColors } = useTheme();
 
-  const toggleTheme = () => {
-    setTheme(prev => (prev === "dark" ? "light" : "dark"));
+  // ✅ ADDED: Custom toggle function that forces re-render
+  const handleToggleTheme = () => {
+    toggleTheme();
+    setRenderKey(prev => prev + 1); // Forces re-render of components using this key
   };
 
   const logout = () => {
@@ -28,10 +32,75 @@ function Layout({ children, navigate }) {
     navigate("/");
   };
 
+  // Notification fetch
+  const fetchNotifications = async () => {
+    if (isFetchingNotif.current) return;
+    if (document.visibilityState !== "visible") return;
+
+    isFetchingNotif.current = true;
+
+    try {
+      const res = await API.get("/notifications");
+      setUnreadCount(res.data.filter(n => !n.is_read).length);
+    } catch (err) {
+      if (err.response?.status !== 429) {
+        console.error("Notification fetch error", err);
+      }
+    } finally {
+      isFetchingNotif.current = false;
+    }
+  };
+
+  // Chat fetch
+  const fetchUnread = async () => {
+    if (isFetchingChat.current) return;
+    if (document.visibilityState !== "visible") return;
+
+    isFetchingChat.current = true;
+
+    try {
+      const res = await API.get("/chat/unread");
+      setUnread(res.data.unread);
+    } catch (err) {
+      if (err.response?.status !== 429) {
+        console.error("Chat fetch error", err);
+      }
+    } finally {
+      isFetchingChat.current = false;
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    socket.on("newNotification", fetchNotifications);
+    socket.on("newMessage", fetchUnread);
+
+    return () => {
+      socket.off("newNotification");
+      socket.off("newMessage");
+    };
+  }, []);
+
+  const layoutStyle = {
+    minHeight: "100vh",
+    background: themeColors.background,
+    color: themeColors.textPrimary,
+    transition: "all 0.3s ease"
+  };
+
   return (
-    <div className="app-layout">
-      
-      {/* ✅ GLOBAL HEADER */}
+    <div className="app-layout" style={layoutStyle}>
       <Header
         navigate={navigate}
         unreadCount={unreadCount}
@@ -41,17 +110,27 @@ function Layout({ children, navigate }) {
         setShowDropdown={setShowDropdown}
         setShowProjectModal={setShowProjectModal}
         setShowMessages={setShowMessages}
-        toggleTheme={toggleTheme}   // 🔥 NEW
-        theme={theme}               // 🔥 NEW
+        toggleTheme={handleToggleTheme}  // ✅ CHANGED: Use custom handler
+        theme={theme}
       />
 
-      {/* ✅ MAIN CONTENT */}
-      <main className="app-main">
+      {/* ✅ ADDED: key prop to force re-render of children when theme changes */}
+      <main key={renderKey} className="app-main" style={{ paddingTop: "80px", minHeight: "calc(100vh - 80px)" }}>
         {children}
       </main>
 
-      {/* ✅ GLOBAL FOOTER */}
       <Footer />
+
+      <MessagePopup
+        isOpen={showMessages}
+        onClose={() => setShowMessages(false)}
+        onMarkRead={fetchNotifications}
+      />
+
+      <ProjectSubmissionModal
+        isOpen={showProjectModal}
+        onClose={() => setShowProjectModal(false)}
+      />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   CartesianGrid
 } from "recharts";
+import { useTheme } from "../context/ThemeContext";
 
 function AdminStudentProgress() {
   const [users, setUsers] = useState([]);
@@ -17,20 +18,9 @@ function AdminStudentProgress() {
   const [userStats, setUserStats] = useState({});
   const [userGraphs, setUserGraphs] = useState({});
   const [loading, setLoading] = useState(true);
-  const [unread, setUnread] = useState(0);
 
   const navigate = useNavigate();
-
-  const theme = {
-    bg: "#0f172a",
-    card: "#1e293b",
-    inner: "#020617",
-    border: "#334155",
-    textMain: "#f8fafc",
-    textMuted: "#94a3b8",
-    accent: "#22c55e",
-    danger: "#ef4444",
-  };
+  const { themeColors, theme } = useTheme();
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -46,11 +36,6 @@ function AdminStudentProgress() {
     fetchUsers();
   }, []);
 
-  const logout = () => {
-    localStorage.clear();
-    navigate("/login");
-  };
-
   const toggleUser = async (userId) => {
     if (openUser === userId) {
       setOpenUser(null);
@@ -60,7 +45,6 @@ function AdminStudentProgress() {
     setOpenUser(userId);
 
     try {
-      // ✅ cache optimization
       if (!userStats[userId]) {
         const statsRes = await API.get(`/admin/user-stats/${userId}`);
         setUserStats(prev => ({ ...prev, [userId]: statsRes.data }));
@@ -76,43 +60,176 @@ function AdminStudentProgress() {
     }
   };
 
+  // Styles using themeColors
+  const containerStyle = {
+    background: themeColors.background,
+    minHeight: "100vh",
+    color: themeColors.textPrimary,
+    padding: "100px",
+  };
+
+  const mainContentStyle = {
+    maxWidth: "1300px",
+    margin: "0 auto",
+  };
+
+  const titleStyle = {
+    marginBottom: "24px",
+    fontSize: "28px",
+    fontWeight: "600",
+    color: themeColors.textPrimary,
+    borderLeft: `4px solid ${themeColors.accent}`,
+    paddingLeft: "16px",
+  };
+
+  const userCardStyle = (isOpen) => ({
+    background: themeColors.cardBg,
+    marginBottom: "16px",
+    borderRadius: "16px",
+    overflow: "hidden",
+    transition: "all 0.3s ease",
+    border: `1px solid ${themeColors.border}`,
+  });
+
+  const userRowStyle = {
+    display: "grid",
+    gridTemplateColumns: "4fr 1.5fr 1.5fr auto",
+    alignItems: "center",
+    padding: "20px",
+    cursor: "pointer",
+    transition: "background 0.2s ease",
+  };
+
+  const userNameStyle = {
+    fontWeight: "700",
+    fontSize: "20px",
+    marginBottom: "4px",
+    color: themeColors.textPrimary,
+  };
+
+  const userEmailStyle = {
+    fontSize: "16px",
+    color: themeColors.textSecondary,
+  };
+
+  const pointsContainerStyle = {
+    textAlign: "center",
+  };
+
+  const pointsValueStyle = {
+    color: themeColors.warning,
+    fontWeight: "800",
+    fontSize: "20px",
+  };
+
+  const pointsLabelStyle = {
+    fontSize: "13px",
+    color: themeColors.textSecondary,
+    marginTop: "4px",
+  };
+
+  const levelBadgeStyle = {
+    background: `${themeColors.accent}20`,
+    color: themeColors.accent,
+    padding: "6px 12px",
+    borderRadius: "20px",
+    fontSize: "20px",
+    fontWeight: "600",
+    textAlign: "center",
+    display: "inline-block",
+    width: "fit-content",
+  };
+
+  const expandIconStyle = {
+    fontSize: "18px",
+    fontWeight: "bold",
+    color: themeColors.textSecondary,
+  };
+
+  const expandedContentStyle = {
+    padding: "20px",
+    background: themeColors.bgInner,
+    borderTop: `1px solid ${themeColors.border}`,
+  };
+
+  const statsGridStyle = {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: "15px",
+    marginBottom: "20px",
+  };
+
+  const badgesContainerStyle = {
+    marginBottom: "20px",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "8px",
+  };
+
+  const badgeStyle = {
+    background: `${themeColors.accent}20`,
+    color: themeColors.accent,
+    padding: "5px 12px",
+    borderRadius: "20px",
+    fontSize: "13px",
+    fontWeight: "500",
+  };
+
+  const graphContainerStyle = {
+    height: "250px",
+    marginTop: "20px",
+  };
+
+  const loadingStyle = {
+    textAlign: "center",
+    padding: "40px",
+    color: themeColors.textSecondary,
+  };
+
+  const emptyStateStyle = {
+    textAlign: "center",
+    padding: "60px",
+    color: themeColors.textSecondary,
+    background: themeColors.cardBg,
+    borderRadius: "16px",
+    border: `1px solid ${themeColors.border}`,
+  };
+
+  const emptyIconStyle = {
+    fontSize: "48px",
+    marginBottom: "16px",
+  };
+
   return (
-    <div style={{ background: theme.bg, minHeight: "100vh", color: theme.textMain }}>
-      
-      {/* HEADER */}
-      <header style={{
-        background: theme.card,
-        borderBottom: `1px solid ${theme.border}`,
-        padding: "0 30px",
-        height: "70px",
-        display: "flex",
-        alignItems: "center",
-        position: "sticky",
-        top: 0,
-        zIndex: 100
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
-          <h1 style={{ fontSize: "20px", fontWeight: "700" }}>🛠 Admin Control</h1>
-
-          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-            <button onClick={() => navigate("/chat")} className="nav-btn">💬 Chat</button>
-            <button onClick={() => navigate("/admin/students")} className="nav-btn">Students</button>
-            <button onClick={() => navigate("/admin/profile")} className="nav-btn">👤 Profile</button>
-            <button onClick={logout} className="logout-btn">Logout</button>
-          </div>
-        </div>
-      </header>
-
-      {/* CONTENT */}
-      <div style={{ maxWidth: "1300px", margin: "40px auto", padding: "0 20px" }}>
-        <h2 style={{ marginBottom: "24px" }}>📊 Student Progress</h2>
+    <div style={containerStyle}>
+      <div style={mainContentStyle}>
+        <h2 style={titleStyle}>📊 Student Progress</h2>
 
         {/* LOADING */}
-        {loading && <div>Loading users...</div>}
+        {loading && (
+          <div style={loadingStyle}>
+            <div style={{ 
+              width: "40px", 
+              height: "40px", 
+              border: `3px solid ${themeColors.border}`,
+              borderTop: `3px solid ${themeColors.accent}`,
+              borderRadius: "50%",
+              margin: "0 auto 16px",
+              animation: "spin 1s linear infinite"
+            }} />
+            <div>Loading users...</div>
+          </div>
+        )}
 
         {/* EMPTY */}
         {!loading && users.length === 0 && (
-          <div style={{ color: theme.textMuted }}>No users found</div>
+          <div style={emptyStateStyle}>
+            <div style={emptyIconStyle}>📭</div>
+            <div>No users found</div>
+            <div style={{ fontSize: "14px", marginTop: "8px" }}>
+              Users will appear here once they start submitting code
+            </div>
+          </div>
         )}
 
         {/* USERS */}
@@ -122,122 +239,136 @@ function AdminStudentProgress() {
           const isOpen = openUser === user.id;
 
           return (
-            <div key={user.id} style={{
-              background: theme.card,
-              marginBottom: "16px",
-              borderRadius: "16px",
-              border: `1px solid ${isOpen ? theme.accent : theme.border}`,
-              overflow: "hidden"
-            }}>
-
+            <div key={user.id} style={userCardStyle(isOpen)}>
               {/* MAIN ROW */}
-              <div
-                onClick={() => toggleUser(user.id)}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "4fr 1.5fr 1.5fr auto",
-                  alignItems: "center",
-                  padding: "20px",
-                  cursor: "pointer"
-                }}
+              <div onClick={() => toggleUser(user.id)} style={userRowStyle}
+                onMouseEnter={(e) => e.currentTarget.style.background = `${themeColors.accent}10`}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
               >
                 <div>
-                  <div style={{ fontWeight: "600" }}>{user.name}</div>
-                  <div style={{ fontSize: "18px", color: theme.textMuted }}>{user.email}</div>
+                  <div style={userNameStyle}>{user.name || "Anonymous User"}</div>
+                  <div style={userEmailStyle}>{user.email}</div>
                 </div>
 
                 {/* POINTS */}
-                <div style={{ textAlign: "center" }}>
-                  <div style={{
-                    color: "#fbbf24",
-                    fontWeight: "800",
-                    fontSize: "20px"
-                    }}>
-                    ⭐ {user.points}
-                    <div style={{ fontSize: "13px", color: "#94a3b8" }}>
-                        points
-                    </div>
-                    </div>
-                  
+                <div style={pointsContainerStyle}>
+                  <div style={pointsValueStyle}>⭐ {user.points || 0}</div>
+                  <div style={pointsLabelStyle}>points</div>
                 </div>
 
                 {/* LEVEL */}
-                <div style={{
-                  background: "#22c55e22",
-                  color: theme.accent,
-                  padding: "6px 12px",
-                  borderRadius: "20px",
-                  fontSize: "15px",
-                  fontWeight: "600",
-                  textAlign: "center"
-                }}>
-                  🎯 {user.level}
+                <div>
+                  <div style={levelBadgeStyle}>🎯 {user.level || "Beginner"}</div>
                 </div>
-               
 
-                <div style={{ fontSize: "18px" }}>
-                  {isOpen ? "<" : ">"}
-                </div>
+                {/* EXPAND ICON */}
+                <div style={expandIconStyle}>{isOpen ? "▲" : "▼"}</div>
               </div>
 
-              {/* EXPANDED */}
+              {/* EXPANDED CONTENT */}
               {isOpen && (
-                <div style={{
-                  padding: "20px",
-                  background: theme.inner,
-                  borderTop: `1px solid ${theme.border}`
-                }}>
-
-                  {/* STATS */}
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                    gap: "15px",
-                    marginBottom: "20px"
-                  }}>
-                    <StatBox label="Total Scans" value={stats.totalScans} icon="📊" />
-                    <StatBox label="Avg Score" value={`${stats.avgScore ?? 0}%`} icon="🎯" color={theme.accent} />
-                    <StatBox label="Bugs" value={stats.totalBugs} icon="🐛" color={theme.danger} />
+                <div style={expandedContentStyle}>
+                  {/* STATS CARDS */}
+                  <div style={statsGridStyle}>
+                    <StatBox 
+                      label="Total Scans" 
+                      value={stats.totalScans} 
+                      icon="📊" 
+                      color={themeColors.accent}
+                      themeColors={themeColors}
+                    />
+                    <StatBox 
+                      label="Avg Score" 
+                      value={`${stats.avgScore ?? 0}%`} 
+                      icon="🎯" 
+                      color={themeColors.success}
+                      themeColors={themeColors}
+                    />
+                    <StatBox 
+                      label="Total Bugs" 
+                      value={stats.totalBugs} 
+                      icon="🐛" 
+                      color={themeColors.danger}
+                      themeColors={themeColors}
+                    />
                   </div>
 
                   {/* BADGES */}
-                  <div style={{ marginBottom: "20px" }}>
-                    {user.badges?.length > 0 ? user.badges.map((b, i) => (
-                      <span key={i} style={{
-                        background: "#22c55e22",
-                        color: theme.accent,
-                        padding: "5px 10px",
-                        borderRadius: "20px",
-                        marginRight: "8px"
-                      }}>
-                        🏆 {b}
+                  <div style={badgesContainerStyle}>
+                    {user.badges?.length > 0 ? (
+                      user.badges.map((b, i) => (
+                        <span key={i} style={badgeStyle}>
+                          🏆 {b}
+                        </span>
+                      ))
+                    ) : (
+                      <span style={{ color: themeColors.textSecondary, fontSize: "14px" }}>
+                        No badges earned yet
                       </span>
-                    )) : "No badges"}
+                    )}
                   </div>
 
                   {/* GRAPH */}
-                  <div style={{ height: "250px" }}>
+                  <div style={graphContainerStyle}>
                     {!graphData ? (
-                      <div>Loading analytics...</div>
+                      <div style={{ textAlign: "center", padding: "40px", color: themeColors.textSecondary }}>
+                        <div style={{ 
+                          width: "30px", 
+                          height: "30px", 
+                          border: `2px solid ${themeColors.border}`,
+                          borderTop: `2px solid ${themeColors.accent}`,
+                          borderRadius: "50%",
+                          margin: "0 auto 16px",
+                          animation: "spin 1s linear infinite"
+                        }} />
+                        Loading analytics...
+                      </div>
                     ) : graphData.length === 0 ? (
-                      <div>No data available</div>
+                      <div style={{ textAlign: "center", padding: "40px", color: themeColors.textSecondary }}>
+                        No submission data available
+                      </div>
                     ) : (
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={graphData}>
-                          <CartesianGrid stroke="#334155" />
+                          <CartesianGrid stroke={themeColors.border} strokeDasharray="3 3" />
                           <XAxis
                             dataKey="created_at"
                             tickFormatter={(d) => new Date(d).toLocaleDateString()}
+                            stroke={themeColors.textSecondary}
+                            tick={{ fill: themeColors.textSecondary, fontSize: 12 }}
                           />
-                          <YAxis />
-                          <Tooltip />
-                          <Line type="monotone" dataKey="score" stroke="#22c55e" />
-                          <Line type="monotone" dataKey="bug_count" stroke="#ef4444" />
+                          <YAxis 
+                            stroke={themeColors.textSecondary}
+                            tick={{ fill: themeColors.textSecondary, fontSize: 12 }}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              background: themeColors.cardBg,
+                              border: `1px solid ${themeColors.border}`,
+                              borderRadius: "8px",
+                              color: themeColors.textPrimary,
+                            }}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="score" 
+                            stroke={themeColors.accent} 
+                            strokeWidth={2}
+                            dot={{ r: 4, fill: themeColors.accent, strokeWidth: 2 }}
+                            activeDot={{ r: 6 }}
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="bug_count" 
+                            stroke={themeColors.danger} 
+                            strokeWidth={2}
+                            dot={{ r: 4, fill: themeColors.danger, strokeWidth: 2 }}
+                            activeDot={{ r: 6 }}
+                          />
                         </LineChart>
                       </ResponsiveContainer>
                     )}
                   </div>
-
                 </div>
               )}
             </div>
@@ -246,50 +377,42 @@ function AdminStudentProgress() {
       </div>
 
       <style>{`
-        .nav-btn {
-          background: #334155;
-          color: white;
-          border: none;
-          padding: 8px 16px;
-          border-radius: 8px;
-          cursor: pointer;
-        }
-        .nav-btn:hover { background: #475569; }
-        .logout-btn {
-          border: 1px solid #ef4444;
-          color: #ef4444;
-          padding: 8px 16px;
-          border-radius: 8px;
-          background: transparent;
-          cursor: pointer;
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       `}</style>
-      {/* 🔻 FOOTER */}
-<footer style={{
-  marginTop: "150px",
-  padding: "20px",
-  textAlign: "center",
-  borderTop: `1px solid ${theme.border}`,
-  color: theme.textMuted,
-  fontSize: "13px"
-}}>
-  © {new Date().getFullYear()} AI Code Analyzer • Admin Portal • Internal Use Only
-</footer>
     </div>
   );
 }
 
-function StatBox({ label, value, icon, color }) {
+function StatBox({ label, value, icon, color, themeColors }) {
   return (
     <div style={{
-      background: "#1e293b",
+      background: themeColors.cardBg,
       padding: "15px",
-      borderRadius: "12px"
-    }}>
-      <div style={{ fontSize: "12px", color: "#94a3b8" }}>
-        {icon} {label}
+      borderRadius: "12px",
+      border: `1px solid ${themeColors.border}`,
+      transition: "transform 0.2s ease",
+    }}
+    onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
+    onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+    >
+      <div style={{ 
+        fontSize: "12px", 
+        color: themeColors.textSecondary,
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        marginBottom: "8px"
+      }}>
+        <span>{icon}</span> {label}
       </div>
-      <div style={{ fontSize: "24px", fontWeight: "700", color: color || "white" }}>
+      <div style={{ 
+        fontSize: "28px", 
+        fontWeight: "700", 
+        color: color || themeColors.textPrimary 
+      }}>
         {value ?? 0}
       </div>
     </div>
