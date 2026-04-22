@@ -344,7 +344,7 @@ function Analyzer() {
                     </span>
                   )}
                 </div>
-// For the paste code textarea (around line 220)
+
 <textarea
   className="analyzer-textarea"
   placeholder="// Paste your code here for instant analysis..."

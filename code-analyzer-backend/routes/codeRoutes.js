@@ -10,7 +10,7 @@ const aiAnalysisController = require("../controller/aiAnalysisController");
 const rateLimit = require("express-rate-limit");
 const compilerLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: 50,
   message: "Too many compiler requests, slow down!",
 });
 

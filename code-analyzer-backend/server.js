@@ -81,8 +81,8 @@ app.use(helmet({
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 15 minutes
-  max: 25,
+  windowMs: 60 * 10000, // 10 minutes
+  max: 200,
   message: { error: 'Too many requests, please wait a minute' },
   standardHeaders: true,
   legacyHeaders: false,

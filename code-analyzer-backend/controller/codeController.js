@@ -65,13 +65,38 @@ exports.pasteCode = async (req, res) => {
     const filePath = path.join(uploadDir, fileName);
     fs.writeFileSync(filePath, code);
 
-    await pool.query(
-      `
-      INSERT INTO code_submissions(user_id, language, code, file_name, file_path, status)
-      VALUES($1, $2, $3, $4, $5, 'pending')
-    `,
-      [user_id, language, code, fileName, filePath]
-    );
+      const insertResult = await pool.query(
+        `
+        INSERT INTO code_submissions(user_id, language, code, file_name, file_path, status)
+        VALUES($1, $2, $3, $4, $5, 'pending')
+        RETURNING id
+      `,
+        [user_id, language, code, fileName, filePath]
+      );
+
+      const submissionId = insertResult.rows[0].id;
+
+      // 🔔 ADMIN NOTIFICATION
+      await pool.query(
+        `INSERT INTO notifications 
+        (user_id, title, message, type, code_submission_id, is_read)
+        VALUES (NULL, $1, $2, $3, $4, false)`,
+        [
+          "📄 New Submission",
+          `File "${fileName}" pasted for approval`,
+          "submission",
+          submissionId
+        ]
+      );
+
+      // 🔥 SOCKET
+      if (global.io) {
+        global.io.emit("newNotification", {
+          type: "submission",
+          message: "User pasted code",
+          submissionId
+        });
+      }
 
     res.json({
       message: "Code saved and file created successfully",
@@ -125,13 +150,38 @@ exports.uploadFile = [
         return res.status(400).json({ error: "Invalid file content" });
       }
 
-      await pool.query(
+      const insertResult = await pool.query(
         `
         INSERT INTO code_submissions(user_id, language, code, file_name, file_path, status)
         VALUES($1, $2, $3, $4, $5, 'pending')
+        RETURNING id
       `,
         [user_id, language, code, fileName, filePath]
       );
+
+      const submissionId = insertResult.rows[0].id;
+
+      // 🔔 ADMIN NOTIFICATION
+      await pool.query(
+        `INSERT INTO notifications 
+        (user_id, title, message, type, code_submission_id, is_read)
+        VALUES (NULL, $1, $2, $3, $4, false)`,
+        [
+          "📁 New File Upload",
+          `File "${fileName}" uploaded for approval`,
+          "submission",
+          submissionId
+        ]
+      );
+
+      // 🔥 SOCKET
+      if (global.io) {
+        global.io.emit("newNotification", {
+          type: "upload",
+          message: "User uploaded file",
+          submissionId
+        });
+      }
 
       res.json({
         message: "File uploaded successfully",
@@ -256,6 +306,29 @@ exports.updateCode = async (req, res) => {
     `,
       [language, code, file_name || null, JSON.stringify(metrics), id, user_id]
     );
+    // 🔔 ADMIN NOTIFICATION (RESUBMIT)
+      const fileNameFinal = file_name || oldData.file_name;
+
+      await pool.query(
+        `INSERT INTO notifications 
+        (user_id, title, message, type, code_submission_id, is_read)
+        VALUES (NULL, $1, $2, $3, $4, false)`,
+        [
+          "🔁 Code Resubmitted",
+          `File "${fileNameFinal}" resubmitted for approval`,
+          "resubmission",
+          id
+        ]
+      );
+
+    // 🔥 SOCKET
+if (global.io) {
+  global.io.emit("newNotification", {
+    type: "resubmission",
+    message: "Code resubmitted",
+    submissionId: id
+  });
+}
 
     res.json({ 
       message: "✅ Code updated + version saved successfully!",
