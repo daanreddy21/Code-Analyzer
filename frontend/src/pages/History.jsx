@@ -466,7 +466,7 @@ function History() {
       minHeight: "100vh", 
       background: themeColors.background, 
       color: themeColors.textPrimary,
-      paddingTop: "100px",
+      paddingTop: "50px",
       paddingBottom: "60px"
     }}>
       <style>{animationStyles}</style>

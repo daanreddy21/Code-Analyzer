@@ -76,8 +76,18 @@ function Dashboard() {
   useEffect(() => {
     if (!token) return;
     API.get("/code/analysis-history")
-      .then(res => setGraphData(res.data))
-      .catch(err => setGraphData([]));
+      .then(res => {
+        // ✅ Ensure graphData is an array
+        if (res.data && Array.isArray(res.data)) {
+          setGraphData(res.data);
+        } else {
+          setGraphData([]);
+        }
+      })
+      .catch(err => {
+        console.error("Failed to fetch graph data:", err);
+        setGraphData([]);
+      });
   }, [token]);
 
   useEffect(() => {
@@ -121,8 +131,15 @@ function Dashboard() {
         setRecentScans(recentRes.data);
         setProjects(projectsRes.data);
         setRewardData(rewardRes.data);
-    } catch (err) { console.error("❌ Dashboard error:", err);
-    } finally { setLoading(false); }
+    } catch (err) { 
+      console.error("❌ Dashboard error:", err);
+      // ✅ Set default values on error
+      setStats({ totalScans: 0, avgScore: 0, totalBugs: 0 });
+      setRecentScans([]);
+      setProjects([]);
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const handleDownload = async (projectId, title) => {
@@ -157,6 +174,17 @@ function Dashboard() {
     localStorage.removeItem("token");
     navigate("/");
   };
+
+  // ✅ Sample fallback data for chart when no data exists
+  const getFallbackGraphData = () => {
+    if (graphData && graphData.length > 0) return graphData;
+    // Return sample data for demo
+    return [
+      { created_at: new Date().toISOString(), score: 0, bug_count: 0 }
+    ];
+  };
+
+  const displayGraphData = getFallbackGraphData();
 
   if (loading) {
     return (
@@ -208,10 +236,10 @@ function Dashboard() {
               </div>
               <span style={{ fontSize: '12px', color: themeColors.textSecondary, background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '20px' }}>Lifetime</span>
             </div>
-            <div className="stat-number" style={{ fontSize: '42px', fontWeight: 'bold', marginBottom: '8px' }}>{stats.totalScans.toLocaleString()}</div>
+            <div className="stat-number" style={{ fontSize: '42px', fontWeight: 'bold', marginBottom: '8px' }}>{stats.totalScans?.toLocaleString() || 0}</div>
             <div className="stat-label" style={{ color: themeColors.textSecondary, fontSize: '14px', fontWeight: '500' }}>Total Scans</div>
             <div style={{ marginTop: '16px', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px' }}>
-              <div style={{ width: '75%', height: '4px', background: themeColors.accent, borderRadius: '2px' }}></div>
+              <div style={{ width: stats.totalScans > 0 ? '75%' : '0%', height: '4px', background: themeColors.accent, borderRadius: '2px' }}></div>
             </div>
           </div>
           
@@ -222,10 +250,10 @@ function Dashboard() {
               </div>
               <span style={{ fontSize: '12px', color: themeColors.textSecondary, background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '20px' }}>Average</span>
             </div>
-            <div className="stat-number" style={{ fontSize: '42px', fontWeight: 'bold', marginBottom: '8px' }}>{stats.avgScore}%</div>
+            <div className="stat-number" style={{ fontSize: '42px', fontWeight: 'bold', marginBottom: '8px' }}>{stats.avgScore || 0}%</div>
             <div className="stat-label" style={{ color: themeColors.textSecondary, fontSize: '14px', fontWeight: '500' }}>Avg Quality Score</div>
             <div style={{ marginTop: '16px', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px' }}>
-              <div style={{ width: `${stats.avgScore}%`, height: '4px', background: themeColors.success, borderRadius: '2px' }}></div>
+              <div style={{ width: `${stats.avgScore || 0}%`, height: '4px', background: themeColors.success, borderRadius: '2px' }}></div>
             </div>
           </div>
           
@@ -236,10 +264,10 @@ function Dashboard() {
               </div>
               <span style={{ fontSize: '12px', color: themeColors.textSecondary, background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '20px' }}>Total</span>
             </div>
-            <div className="stat-number" style={{ fontSize: '42px', fontWeight: 'bold', marginBottom: '8px' }}>{stats.totalBugs.toLocaleString()}</div>
+            <div className="stat-number" style={{ fontSize: '42px', fontWeight: 'bold', marginBottom: '8px' }}>{stats.totalBugs?.toLocaleString() || 0}</div>
             <div className="stat-label" style={{ color: themeColors.textSecondary, fontSize: '14px', fontWeight: '500' }}>Bugs Detected</div>
             <div style={{ marginTop: '16px', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px' }}>
-              <div style={{ width: '100%', height: '4px', background: themeColors.danger, borderRadius: '2px' }}></div>
+              <div style={{ width: stats.totalBugs > 0 ? '100%' : '0%', height: '4px', background: themeColors.danger, borderRadius: '2px' }}></div>
             </div>
           </div>
         </div>
@@ -262,63 +290,85 @@ function Dashboard() {
               </div>
             </div>
           </div>
-          <div className="graph-container" style={{ width: '100%', height: '320px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={graphData}>
-                <defs>
-                  <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={themeColors.accent} stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor={themeColors.accent} stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorBugs" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={themeColors.danger} stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor={themeColors.danger} stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={themeColors.border} vertical={false} />
-                <XAxis dataKey="created_at" tickFormatter={(d) => new Date(d).toLocaleDateString()} stroke={themeColors.textSecondary} fontSize={12} tickLine={false} axisLine={{ stroke: themeColors.border }} />
-                <YAxis yAxisId="left" stroke={themeColors.textSecondary} fontSize={12} tickLine={false} axisLine={{ stroke: themeColors.border }} />
-                <YAxis yAxisId="right" orientation="right" stroke={themeColors.textSecondary} fontSize={12} tickLine={false} axisLine={{ stroke: themeColors.border }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Area 
-                  yAxisId="left" 
-                  type="monotone" 
-                  dataKey="score" 
-                  stroke={themeColors.accent} 
-                  strokeWidth={2} 
-                  fillOpacity={1} 
-                  fill="url(#colorScore)" 
-                  name="Score"
-                  dot={{ 
-                    r: 4, 
-                    fill: themeColors.accent, 
-                    stroke: themeColors.background, 
-                    strokeWidth: 2,
-                    className: "chart-dot"
-                  }}
-                  activeDot={{ r: 6, fill: themeColors.accent, stroke: '#fff', strokeWidth: 2 }}
-                />
-                <Area 
-                  yAxisId="right" 
-                  type="monotone" 
-                  dataKey="bug_count" 
-                  stroke={themeColors.danger} 
-                  strokeWidth={2} 
-                  fillOpacity={1} 
-                  fill="url(#colorBugs)" 
-                  name="Bugs"
-                  dot={{ 
-                    r: 4, 
-                    fill: themeColors.danger, 
-                    stroke: themeColors.background, 
-                    strokeWidth: 2,
-                    className: "chart-dot"
-                  }}
-                  activeDot={{ r: 6, fill: themeColors.danger, stroke: '#fff', strokeWidth: 2 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          
+          {/* ✅ Show message when no data */}
+          {displayGraphData.length === 0 || (displayGraphData.length === 1 && displayGraphData[0].score === 0) ? (
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '80px 20px',
+              color: themeColors.textSecondary,
+              background: themeColors.bgInner,
+              borderRadius: '12px'
+            }}>
+              <FaChartLine size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+              <p>No data available yet. Run some code scans to see your progress!</p>
+            </div>
+          ) : (
+            <div className="graph-container" style={{ width: '100%', height: '320px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={displayGraphData}>
+                  <defs>
+                    <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={themeColors.accent} stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor={themeColors.accent} stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorBugs" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={themeColors.danger} stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor={themeColors.danger} stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={themeColors.border} vertical={false} />
+                  <XAxis 
+                    dataKey="created_at" 
+                    tickFormatter={(d) => d ? new Date(d).toLocaleDateString() : ''} 
+                    stroke={themeColors.textSecondary} 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={{ stroke: themeColors.border }} 
+                  />
+                  <YAxis yAxisId="left" stroke={themeColors.textSecondary} fontSize={12} tickLine={false} axisLine={{ stroke: themeColors.border }} />
+                  <YAxis yAxisId="right" orientation="right" stroke={themeColors.textSecondary} fontSize={12} tickLine={false} axisLine={{ stroke: themeColors.border }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area 
+                    yAxisId="left" 
+                    type="monotone" 
+                    dataKey="score" 
+                    stroke={themeColors.accent} 
+                    strokeWidth={2} 
+                    fillOpacity={1} 
+                    fill="url(#colorScore)" 
+                    name="Score"
+                    dot={{ 
+                      r: 4, 
+                      fill: themeColors.accent, 
+                      stroke: themeColors.background, 
+                      strokeWidth: 2,
+                      className: "chart-dot"
+                    }}
+                    activeDot={{ r: 6, fill: themeColors.accent, stroke: '#fff', strokeWidth: 2 }}
+                  />
+                  <Area 
+                    yAxisId="right" 
+                    type="monotone" 
+                    dataKey="bug_count" 
+                    stroke={themeColors.danger} 
+                    strokeWidth={2} 
+                    fillOpacity={1} 
+                    fill="url(#colorBugs)" 
+                    name="Bugs"
+                    dot={{ 
+                      r: 4, 
+                      fill: themeColors.danger, 
+                      stroke: themeColors.background, 
+                      strokeWidth: 2,
+                      className: "chart-dot"
+                    }}
+                    activeDot={{ r: 6, fill: themeColors.danger, stroke: '#fff', strokeWidth: 2 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
 
         {/* TWO COLUMN SECTION: Recurring Issues & AI Suggestions - Enhanced */}
@@ -419,32 +469,41 @@ function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {recentScans.map(scan => (
-                  <tr key={scan.id} style={{ borderBottom: `1px solid ${themeColors.border}` }}>
-                    <td style={{ padding: '1rem 1.5rem' }}>
-                      <span style={{ 
-                        background: themeColors.cardBg, 
-                        padding: '0.25rem 0.75rem', 
-                        borderRadius: '20px', 
-                        fontSize: '0.75rem',
-                        fontFamily: 'monospace',
-                        color: themeColors.textPrimary
-                      }}>{scan.language}</span>
+                {recentScans.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', padding: '60px', color: themeColors.textSecondary }}>
+                      <FaCode size={40} style={{ marginBottom: '16px', opacity: 0.5 }} />
+                      <p>No scans yet. Start analyzing code to see results!</p>
                     </td>
-                    <td style={{ padding: '1rem 1.5rem', fontSize: '0.875rem', color: themeColors.textPrimary }}>{scan.file_name || "Pasted Code"}</td>
-                    <td style={{ padding: '1rem 1.5rem' }}>
-                      <span style={{ 
-                        color: scan.score >= 80 ? themeColors.success : (scan.score >= 60 ? themeColors.warning : themeColors.danger), 
-                        fontWeight: '600',
-                        fontSize: '0.875rem'
-                      }}>{scan.score}/100</span>
-                    </td>
-                    <td style={{ padding: '1rem 1.5rem', fontSize: '0.875rem' }}>
-                      <span style={{ color: scan.bugs > 0 ? themeColors.danger : themeColors.success }}>{scan.bugs || 0}</span>
-                    </td>
-                    <td style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', color: themeColors.textSecondary }}>{new Date(scan.created_at).toLocaleDateString()}</td>
                   </tr>
-                ))}
+                ) : (
+                  recentScans.map(scan => (
+                    <tr key={scan.id} style={{ borderBottom: `1px solid ${themeColors.border}` }}>
+                      <td style={{ padding: '1rem 1.5rem' }}>
+                        <span style={{ 
+                          background: themeColors.cardBg, 
+                          padding: '0.25rem 0.75rem', 
+                          borderRadius: '20px', 
+                          fontSize: '0.75rem',
+                          fontFamily: 'monospace',
+                          color: themeColors.textPrimary
+                        }}>{scan.language}</span>
+                      </td>
+                      <td style={{ padding: '1rem 1.5rem', fontSize: '0.875rem', color: themeColors.textPrimary }}>{scan.file_name || "Pasted Code"}</td>
+                      <td style={{ padding: '1rem 1.5rem' }}>
+                        <span style={{ 
+                          color: scan.score >= 80 ? themeColors.success : (scan.score >= 60 ? themeColors.warning : themeColors.danger), 
+                          fontWeight: '600',
+                          fontSize: '0.875rem'
+                        }}>{scan.score}/100</span>
+                      </td>
+                      <td style={{ padding: '1rem 1.5rem', fontSize: '0.875rem' }}>
+                        <span style={{ color: scan.bugs > 0 ? themeColors.danger : themeColors.success }}>{scan.bugs || 0}</span>
+                      </td>
+                      <td style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', color: themeColors.textSecondary }}>{new Date(scan.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -546,7 +605,7 @@ function Dashboard() {
         }
         ::-webkit-scrollbar-thumb {
           background: ${themeColors.accent};
-          border-radius: 4px;
+          borderRadius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
           background: #4c51bf;

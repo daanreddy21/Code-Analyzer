@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
 import API from "../services/api";
 import { 
   FaTimes, 
@@ -14,7 +15,7 @@ import {
 } from "react-icons/fa";
 import { useTheme } from "../context/ThemeContext";
 
-const ProjectSubmissionModal = ({ isOpen, onClose, onSuccess }) => {
+const ProjectSubmissionModal = ({ isOpen, onClose, onSuccess, showCustomInfo }) => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -68,6 +69,51 @@ const ProjectSubmissionModal = ({ isOpen, onClose, onSuccess }) => {
       setSubmitting(false);
     }
   };
+
+useEffect(() => {
+  if (isOpen && showCustomInfo) {
+    const key = "visited_project_modal";
+    const visited = localStorage.getItem(key);
+
+    if (!visited) {
+      const timer = setTimeout(() => {
+        showCustomInfo({
+          title: "Project Submission",
+          description:
+            "This section allows you to upload and submit your project for evaluation.",
+          sections: [
+            {
+              name: "Upload Files",
+              details:
+                "Upload your project files such as ZIP or code files."
+            },
+            {
+              name: "Project Details",
+              details:
+                "Enter project title, domain, and technology stack."
+            },
+            {
+              name: "Submit Button",
+              details:
+                "Submits your project to backend for storage and review."
+            }
+          ],
+          popups: [
+            {
+              name: "Validation",
+              details:
+                "Checks if all required fields and files are provided."
+            }
+          ]
+        });
+
+        localStorage.setItem(key, "true");
+      }, 300);
+
+      return () => clearTimeout(timer);
+    }
+  }
+}, [isOpen, showCustomInfo]);
 
   const resetForm = () => {
     setFormData({
@@ -186,54 +232,129 @@ const ProjectSubmissionModal = ({ isOpen, onClose, onSuccess }) => {
               background: themeColors.bgInner
             }}
           >
+            {/* LEFT SIDE */}
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{
-                width: "40px",
-                height: "40px",
-                background: `linear-gradient(135deg, ${themeColors.accent}, #4c51bf)`,
-                borderRadius: "12px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center"
-              }}>
+              <div
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  background: `linear-gradient(135deg, ${themeColors.accent}, #4c51bf)`,
+                  borderRadius: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+              >
                 <FaProjectDiagram size={20} color="#fff" />
               </div>
+
               <div>
-                <h3 style={{ margin: 0, color: themeColors.textPrimary, fontSize: "1.25rem" }}>
+                <h3
+                  style={{
+                    margin: 0,
+                    color: themeColors.textPrimary,
+                    fontSize: "1.25rem"
+                  }}
+                >
                   Submit New Project
                 </h3>
-                <p style={{ margin: "4px 0 0 0", color: themeColors.textSecondary, fontSize: "13px" }}>
+
+                <p
+                  style={{
+                    margin: "4px 0 0 0",
+                    color: themeColors.textSecondary,
+                    fontSize: "13px"
+                  }}
+                >
                   Share your college project for review
                 </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              style={{
-                background: themeColors.accentGlow,
-                border: "none",
-                color: themeColors.textSecondary,
-                width: "32px",
-                height: "32px",
-                borderRadius: "8px",
-                fontSize: "18px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "all 0.2s"
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = themeColors.danger;
-                e.currentTarget.style.color = "#fff";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = themeColors.accentGlow;
-                e.currentTarget.style.color = themeColors.textSecondary;
-              }}
-            >
-              <FaTimes />
-            </button>
+
+            {/* RIGHT SIDE (INFO + CLOSE) */}
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              
+              {/* ℹ️ INFO BUTTON */}
+              <button
+                onClick={() =>
+                  showCustomInfo({
+                    title: "Project Submission",
+                    description:
+                      "This section allows you to upload and submit your project for evaluation.",
+
+                    sections: [
+                      {
+                        name: "Upload Files",
+                        details:
+                          "Upload your project files such as ZIP or code files."
+                      },
+                      {
+                        name: "Project Details",
+                        details:
+                          "Enter project title, domain, and technology stack."
+                      },
+                      {
+                        name: "Submit Button",
+                        details:
+                          "Submits your project to backend for storage and review."
+                      }
+                    ],
+
+                    popups: [
+                      {
+                        name: "Validation",
+                        details:
+                          "Checks if all required fields and files are provided."
+                      }
+                    ]
+                  })
+                }
+                style={{
+                  background: themeColors.accentGlow,
+                  border: "none",
+                  color: themeColors.textPrimary,
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+                title="About this section"
+              >
+                <FaInfoCircle />
+              </button>
+
+              {/* ❌ CLOSE BUTTON (UNCHANGED) */}
+              <button
+                onClick={onClose}
+                style={{
+                  background: themeColors.accentGlow,
+                  border: "none",
+                  color: themeColors.textSecondary,
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "8px",
+                  fontSize: "18px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = themeColors.danger;
+                  e.currentTarget.style.color = "#fff";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = themeColors.accentGlow;
+                  e.currentTarget.style.color = themeColors.textSecondary;
+                }}
+              >
+                <FaTimes />
+              </button>
+            </div>
           </div>
 
           {/* FORM */}

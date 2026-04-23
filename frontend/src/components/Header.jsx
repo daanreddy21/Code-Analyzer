@@ -13,7 +13,8 @@ function Header({
   setShowProjectModal,
   setShowMessages,
   toggleTheme,
-  theme
+  theme,
+  showCustomInfo
 }) {
 
   // Close dropdown on outside click

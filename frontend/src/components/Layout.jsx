@@ -7,6 +7,9 @@ import API from "../services/api";
 import socket from "../services/socket";
 import ProjectSubmissionModal from "./ProjectSubmissionModal";
 import { useTheme } from "../context/ThemeContext";
+import { useLocation } from "react-router-dom";
+import AdvancedInfoPopup from "./AdvancedInfoPopup";
+import pageFullInfo from "../utils/pageFullInfo";
 
 function Layout({ children, navigate }) {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -14,17 +17,28 @@ function Layout({ children, navigate }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
-  const [renderKey, setRenderKey] = useState(0); // ✅ ADDED: Force re-render key
+  const [renderKey, setRenderKey] = useState(0);
 
   const isFetchingNotif = useRef(false);
   const isFetchingChat = useRef(false);
 
+  const location = useLocation();
+
+  const [showInfo, setShowInfo] = useState(false);
+  const [customInfo, setCustomInfo] = useState(null);
+
   const { theme, toggleTheme, themeColors } = useTheme();
 
-  // ✅ ADDED: Custom toggle function that forces re-render
+  // ✅ GLOBAL CUSTOM INFO FUNCTION
+  const showCustomInfo = (info) => {
+    setCustomInfo(info);
+    setShowInfo(true);
+  };
+
+  // ✅ FORCE RE-RENDER ON THEME CHANGE
   const handleToggleTheme = () => {
     toggleTheme();
-    setRenderKey(prev => prev + 1); // Forces re-render of components using this key
+    setRenderKey(prev => prev + 1);
   };
 
   const logout = () => {
@@ -32,7 +46,7 @@ function Layout({ children, navigate }) {
     navigate("/");
   };
 
-  // Notification fetch
+  // 🔔 FETCH NOTIFICATIONS
   const fetchNotifications = async () => {
     if (isFetchingNotif.current) return;
     if (document.visibilityState !== "visible") return;
@@ -51,7 +65,7 @@ function Layout({ children, navigate }) {
     }
   };
 
-  // Chat fetch
+  // 💬 FETCH CHAT
   const fetchUnread = async () => {
     if (isFetchingChat.current) return;
     if (document.visibilityState !== "visible") return;
@@ -69,6 +83,17 @@ function Layout({ children, navigate }) {
       isFetchingChat.current = false;
     }
   };
+
+  // ✅ FIRST TIME PAGE VISIT POPUP
+  useEffect(() => {
+    const key = `visited_${location.pathname}`;
+    const visited = localStorage.getItem(key);
+
+    if (!visited) {
+      setShowInfo(true);
+      localStorage.setItem(key, "true");
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     fetchNotifications();
@@ -95,12 +120,13 @@ function Layout({ children, navigate }) {
   const layoutStyle = {
     minHeight: "100vh",
     background: themeColors.background,
-    color: themeColors.textPrimary,
-    transition: "all 0.3s ease"
+    color: themeColors.textPrimary
   };
 
   return (
     <div className="app-layout" style={layoutStyle}>
+      
+      {/* ✅ PASS showCustomInfo TO HEADER */}
       <Header
         navigate={navigate}
         unreadCount={unreadCount}
@@ -110,27 +136,79 @@ function Layout({ children, navigate }) {
         setShowDropdown={setShowDropdown}
         setShowProjectModal={setShowProjectModal}
         setShowMessages={setShowMessages}
-        toggleTheme={handleToggleTheme}  // ✅ CHANGED: Use custom handler
+        toggleTheme={handleToggleTheme}
         theme={theme}
+        showCustomInfo={showCustomInfo}   // ✅ IMPORTANT FIX
       />
 
-      {/* ✅ ADDED: key prop to force re-render of children when theme changes */}
-      <main key={renderKey} className="app-main" style={{ paddingTop: "80px", minHeight: "calc(100vh - 80px)" }}>
-        {children}
+      {/* ✅ PASS showCustomInfo TO ALL PAGES */}
+      <main
+        key={renderKey}
+        className="app-main"
+        style={{ paddingTop: "80px", minHeight: "calc(100vh - 80px)" }}
+      >
+        {React.cloneElement(children, { showCustomInfo })}
       </main>
 
       <Footer />
 
-      <MessagePopup
-        isOpen={showMessages}
-        onClose={() => setShowMessages(false)}
-        onMarkRead={fetchNotifications}
-      />
+      {/* 🔔 NOTIFICATIONS POPUP */}
+        <MessagePopup
+          isOpen={showMessages}
+          onClose={() => setShowMessages(false)}
+          onMarkRead={fetchNotifications}
+          showCustomInfo={showCustomInfo}   // ✅ ADD THIS
+        />
 
-      <ProjectSubmissionModal
-        isOpen={showProjectModal}
-        onClose={() => setShowProjectModal(false)}
-      />
+      {/* 📤 PROJECT SUBMISSION */}
+        <ProjectSubmissionModal
+          isOpen={showProjectModal}
+          onClose={() => setShowProjectModal(false)}
+          showCustomInfo={showCustomInfo}   // ✅ ADD THIS
+        />
+
+      {/* 🔥 GLOBAL INFO POPUP */}
+      {(showInfo || customInfo) && (
+        <AdvancedInfoPopup
+          data={
+            customInfo ||
+            pageFullInfo[location.pathname] || {
+              title: "Page Info",
+              description: "No information available",
+              sections: [],
+              popups: []
+            }
+          }
+          onClose={() => {
+            setShowInfo(false);
+            setCustomInfo(null);
+          }}
+        />
+      )}
+
+      {/* ℹ️ FLOATING INFO BUTTON */}
+      <div
+        onClick={() => setShowInfo(true)}
+        onMouseEnter={() => setShowInfo(true)}
+        style={{
+          position: "fixed",
+          bottom: "30px",
+          right: "30px",
+          background: "#4c51bf",
+          color: "#fff",
+          width: "50px",
+          height: "50px",
+          borderRadius: "50%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          zIndex: 9999,
+          fontSize: "22px"
+        }}
+      >
+        ℹ️
+      </div>
     </div>
   );
 }
