@@ -13,65 +13,306 @@ function Analyzer() {
   const [fileName, setFileName] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeTab, setActiveTab] = useState("paste"); // 'paste' or 'upload'
-  
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [showPopup, setShowPopup] = useState(false);
+
   // ✅ USE THEME FROM CONTEXT
   const { themeColors, theme } = useTheme();
+  // 🔥 ADVANCED MULTI-LANGUAGE ANALYZER
+const analyzeCodeLocally = (code, language) => {
+  let score = 100;
+  let issues = [];
 
-  const submitCode = async () => {
-    if (!language) { 
-      showToast("Please select a programming language", "warning"); 
-      return; 
+  const addIssue = (type, title, suggestion, penalty) => {
+    issues.push({ type, title, suggestion });
+    score -= penalty;
+  };
+
+  const lines = code.split("\n").filter(l => l.trim()).length;
+
+  // ================= JAVASCRIPT =================
+  if (language === "JavaScript") {
+
+    if (/eval\s*\(/i.test(code)) {
+      addIssue("CRITICAL", "Use of eval()", "Avoid eval() due to injection risk", 30);
     }
-    if (!pasteCode.trim()) { 
-      showToast("Code cannot be empty", "warning"); 
-      return; 
+
+    if (/Function\s*\(/i.test(code)) {
+      addIssue("CRITICAL", "Dynamic Function()", "Avoid dynamic code execution", 25);
     }
-    
-    setIsAnalyzing(true);
+
+    if (/innerHTML\s*=/.test(code)) {
+      addIssue("HIGH", "innerHTML usage", "Use textContent to prevent XSS", 20);
+    }
+
+    if (/\b==\b/.test(code)) {
+      addIssue("MEDIUM", "Loose equality (==)", "Use === instead", 10);
+    }
+
+    if (/\b!=\b/.test(code)) {
+      addIssue("MEDIUM", "Loose inequality (!=)", "Use !== instead", 10);
+    }
+
+    if (/var\s+/.test(code)) {
+      addIssue("LOW", "var usage", "Use let/const", 8);
+    }
+
+    if (/console\.log/.test(code)) {
+      addIssue("LOW", "Debug logs", "Remove console.log in production", 5);
+    }
+
+    if (!/;\s*$/.test(code.trim()) && lines < 50) {
+      addIssue("LOW", "Missing semicolon", "Add semicolons", 5);
+    }
+
+    if (/document\.write/.test(code)) {
+      addIssue("HIGH", "document.write usage", "Avoid document.write()", 20);
+    }
+
+    if (/setTimeout\s*\(\s*".*"\)/.test(code)) {
+      addIssue("HIGH", "String in setTimeout", "Use function instead of string", 15);
+    }
+  }
+
+  // ================= PYTHON =================
+  if (language === "Python") {
+
+    if (/eval\s*\(/.test(code) || /exec\s*\(/.test(code)) {
+      addIssue("CRITICAL", "eval/exec usage", "Use safer parsing methods", 35);
+    }
+
+    if (/print\s*\(/.test(code)) {
+      addIssue("LOW", "Print statements", "Use logging module", 5);
+    }
+
+    if (/except\s*:/i.test(code)) {
+      addIssue("HIGH", "Generic exception", "Specify exception type", 20);
+    }
+
+    if (/global\s+/.test(code)) {
+      addIssue("MEDIUM", "Global variable", "Avoid global variables", 10);
+    }
+
+    if (/==\s*None/.test(code)) {
+      addIssue("LOW", "None comparison", "Use 'is None'", 5);
+    }
+
+    if (!/:$/.test(code.split("\n").find(l => l.includes("if")) || "")) {
+      addIssue("MEDIUM", "Missing colon", "Python requires ':'", 10);
+    }
+
+    if (/\t/.test(code)) {
+      addIssue("LOW", "Tabs used", "Use spaces instead of tabs", 5);
+    }
+  }
+
+  // ================= JAVA =================
+  if (language === "Java") {
+
+    if (/catch\s*\(\s*Exception/.test(code)) {
+      addIssue("CRITICAL", "Generic Exception", "Catch specific exceptions", 25);
+    }
+
+    if (/System\.out\.println/.test(code)) {
+      addIssue("LOW", "Debug print", "Use logging framework", 5);
+    }
+
+    if (/public\s+static\s+void\s+main/.test(code) === false) {
+      addIssue("MEDIUM", "No main method", "Add main method", 10);
+    }
+
+    if (/==\s*true|==\s*false/.test(code)) {
+      addIssue("LOW", "Boolean comparison", "Avoid == true/false", 5);
+    }
+
+    if (/String\s+\w+\s*=\s*".*"\s*\+/.test(code)) {
+      addIssue("MEDIUM", "String concatenation", "Use StringBuilder", 10);
+    }
+
+    if (/new\s+Integer/.test(code)) {
+      addIssue("LOW", "Wrapper class usage", "Use autoboxing", 5);
+    }
+  }
+
+  // ================= C++ =================
+  if (language === "C++") {
+
+    if (/gets\s*\(/.test(code)) {
+      addIssue("CRITICAL", "Unsafe gets()", "Use fgets instead", 30);
+    }
+
+    if (/scanf\s*\(.*%s/.test(code)) {
+      addIssue("HIGH", "Unsafe scanf", "Use width limit in scanf", 20);
+    }
+
+    if (/malloc\s*\(/.test(code) && !/free\s*\(/.test(code)) {
+      addIssue("HIGH", "Memory leak risk", "Free allocated memory", 20);
+    }
+
+    if (/using\s+namespace\s+std/.test(code)) {
+      addIssue("LOW", "Namespace pollution", "Avoid using namespace std", 5);
+    }
+
+    if (/cout\s*<<.*<<\s*endl/.test(code)) {
+      addIssue("LOW", "endl usage", "Use '\\n' instead of endl", 5);
+    }
+
+    if (!/#include/.test(code)) {
+      addIssue("MEDIUM", "Missing include", "Add required headers", 10);
+    }
+
+    if (/int\s+main\s*\(\)/.test(code) === false) {
+      addIssue("MEDIUM", "No main function", "Add main()", 10);
+    }
+  }
+
+  // ================= COMMON RULES =================
+
+  if (lines > 300) {
+    addIssue("MEDIUM", "Large file", "Split into smaller modules", 15);
+  }
+
+  if (code.length < 30) {
+    addIssue("LOW", "Too short", "Write meaningful code", 10);
+  }
+
+  if (/password\s*=/.test(code)) {
+    addIssue("CRITICAL", "Hardcoded password", "Use environment variables", 35);
+  }
+
+  if (/SELECT.*\+/.test(code)) {
+    addIssue("CRITICAL", "SQL Injection risk", "Use parameterized queries", 30);
+  }
+
+  return {
+    score: Math.max(0, score),
+    issues
+  };
+};
+
+const submitCode = async () => {
+  setShowPopup(false);
+  if (!language) {
+    showToast("Select language", "warning");
+    return;
+  }
+
+  if (!pasteCode.trim()) {
+    showToast("Code empty", "warning");
+    return;
+  }
+
+  setIsAnalyzing(true);
+
+  try {
+    // 🔥 ANALYZE LOCALLY
+    const result = analyzeCodeLocally(pasteCode, language);
+
+    setAnalysisResult(result);
+
+    // ❌ SHOW POPUP ONLY IF < 60
+if (result.score < 60) {
+  setShowPopup(true);
+  setIsAnalyzing(false); // ✅ ADD THIS
+  return;
+}
+
+    // ✅ NORMAL FLOW (SAVE TO BACKEND)
     try {
       await API.post("/code/paste", { language, code: pasteCode });
-      showToast("Code analyzed successfully!", "success");
-      setPasteCode("");
-      setLanguage("");
-    } catch (err) {
-      showToast(err.response?.data?.error || "Error analyzing code", "error");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+      showToast("Code submitted successfully!", "success");
 
-  const uploadFile = async () => {
-    if (!language || !fileName) { 
-      showToast("Please select language and file", "warning"); 
-      return; 
+    } catch (err) {
+      if (err.response?.data?.error) {
+        showToast(err.response.data.error, "error");
+      } else {
+        showToast("Error", "error");
+      }
+      return;
     }
-    if (!fileCode.trim()) { 
-      showToast("File content is empty", "warning"); 
-      return; 
+
+    setPasteCode("");
+    setLanguage("");
+
+  } catch (err) {
+    showToast("Error", "error");
+  } finally {
+    setIsAnalyzing(false);
+  }
+};
+
+const uploadFile = async () => {
+  if (!language || !fileName) {
+    showToast("Select language & file", "warning");
+    return;
+  }
+
+  if (!fileCode.trim()) {
+    showToast("Empty file", "warning");
+    return;
+  }
+
+  setIsAnalyzing(true);
+
+  try {
+    // 🔥 ANALYZE LOCALLY
+    const result = analyzeCodeLocally(fileCode, language);
+
+    setAnalysisResult(result);
+
+    if (result.score < 60) {
+      setShowPopup(true);
+      setIsAnalyzing(false); // ✅ ADD THIS
+      return;
     }
-    
-    setIsAnalyzing(true);
+
+    // ✅ NORMAL UPLOAD
     const formData = new FormData();
     formData.append("language", language);
-    
-    const fileBlob = new Blob([fileCode], { type: 'text/plain' });
-    const fileObj = new File([fileBlob], fileName, { type: 'text/plain' });
+
+    const blob = new Blob([fileCode], { type: "text/plain" });
+    const fileObj = new File([blob], fileName);
+
     formData.append("file", fileObj);
     formData.append("code", fileCode);
-    
-    try {
-      const response = await API.post("/code/upload", formData);
-      showToast(`File "${response.data.fileName}" analyzed successfully!`, "success");
-      setFileName("");
-      setFileCode("");
-      setLanguage("");
-    } catch (err) {
-      console.error('Upload error:', err.response?.data);
-      showToast('Upload failed: ' + (err.response?.data?.error || err.message), "error");
-    } finally {
-      setIsAnalyzing(false);
-    }
+
+      try {
+        const res = await API.post("/code/upload", formData);
+
+        showToast("File uploaded successfully!", "success");
+
+      } catch (err) {
+        if (err.response?.data?.error) {
+          showToast(err.response.data.error, "error"); // ✅ duplicate file msg
+        } else {
+          showToast("Upload failed", "error");
+        }
+        return;
+      }
+
+    setFileName("");
+    setFileCode("");
+    setLanguage("");
+
+  } catch (err) {
+    showToast("Upload error", "error");
+  } finally {
+    setIsAnalyzing(false);
+  }
+};
+// ✅ VALIDATE FILE EXTENSION WITH LANGUAGE
+const validateFileWithLanguage = (fileName, language) => {
+  const ext = "." + fileName.split(".").pop().toLowerCase();
+
+  const map = {
+    Java: ".java",
+    Python: ".py",
+    JavaScript: ".js",
+    "C++": ".cpp",
   };
+
+  return map[language] === ext;
+};
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -84,13 +325,15 @@ function Analyzer() {
     }
     
     // Validate file type
-    const validExtensions = ['.js', '.py', '.java', '.cpp', '.txt'];
-    const fileExt = '.' + selectedFile.name.split('.').pop();
-    if (!validExtensions.includes(fileExt)) {
-      showToast("Unsupported file type. Please use .js, .py, .java, .cpp, or .txt", "warning");
+    if (!language) {
+      showToast("Please select language first", "warning");
       return;
     }
-    
+
+    if (!validateFileWithLanguage(selectedFile.name, language)) {
+      showToast("Invalid file type for selected language", "error");
+      return;
+    }
     setFileName(selectedFile.name);
     setFileCode("");
     
@@ -390,7 +633,7 @@ function Analyzer() {
                   {isAnalyzing ? (
                     <>⏳ Analyzing...</>
                   ) : (
-                    <><FaPlay size={14} /> Analyze Code</>
+                    <><FaPlay size={14} /> upload & analyze</>
                   )}
                 </button>
               </div>
@@ -551,6 +794,61 @@ function Analyzer() {
             <p style={{ color: themeColors.textSecondary, fontSize: '14px' }}>Receive AI-powered recommendations for code improvement</p>
           </div>
         </div>
+        {showPopup && analysisResult && (
+  <div style={{
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    background: "rgba(0,0,0,0.7)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999
+  }}>
+    <div style={{
+      background: "#1f2937",
+      padding: "24px",
+      borderRadius: "16px",
+      width: "400px",
+      color: "#fff"
+    }}>
+      <h2>
+        {analysisResult.score < 50
+          ? "🔴 Code Rejected"
+          : "🟡 Needs Improvement"}
+      </h2>
+
+      <p>Score: {analysisResult.score}</p>
+      <p>Bugs: {analysisResult.issues.length}</p>
+
+      <ul>
+        {analysisResult.issues.map((issue, i) => (
+          <li key={i}>
+            <b>{issue.title}</b><br/>
+            💡 {issue.suggestion}
+          </li>
+        ))}
+      </ul>
+
+      <button
+        onClick={() => setShowPopup(false)}
+        style={{
+          marginTop: "15px",
+          padding: "10px",
+          width: "100%",
+          background: "#6366f1",
+          border: "none",
+          color: "#fff",
+          borderRadius: "8px"
+        }}
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
       </main>
 
       

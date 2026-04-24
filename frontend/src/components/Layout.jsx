@@ -140,6 +140,7 @@ function Layout({ children, navigate }) {
         theme={theme}
         showCustomInfo={showCustomInfo}   // ✅ IMPORTANT FIX
       />
+      
 
       {/* ✅ PASS showCustomInfo TO ALL PAGES */}
       <main
@@ -192,7 +193,7 @@ function Layout({ children, navigate }) {
         onMouseEnter={() => setShowInfo(true)}
         style={{
           position: "fixed",
-          bottom: "30px",
+          bottom: "90px",
           right: "30px",
           background: "#4c51bf",
           color: "#fff",
