@@ -26,6 +26,7 @@ function AdminHeader({ navigate, chatUnread, notifUnread }) {
           right: 0,
           zIndex: 1000,
           backdropFilter: "blur(10px)",
+          padding: "",
         }}
       >
         <div
@@ -37,7 +38,7 @@ function AdminHeader({ navigate, chatUnread, notifUnread }) {
             justifyContent: "space-between",
             alignItems: "center",
             padding: "0 24px",
-            height: "70px",
+            height: "55px",
           }}
         >
           {/* LEFT */}

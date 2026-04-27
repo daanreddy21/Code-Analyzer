@@ -131,9 +131,9 @@ function AdminStudentProgress() {
   const levelBadgeStyle = {
     background: `${themeColors.accent}20`,
     color: themeColors.accent,
-    padding: "6px 12px",
+    padding: "6px 30px 6px 30px",
     borderRadius: "20px",
-    fontSize: "20px",
+    fontSize: "18px",
     fontWeight: "600",
     textAlign: "center",
     display: "inline-block",
@@ -252,13 +252,13 @@ function AdminStudentProgress() {
 
                 {/* POINTS */}
                 <div style={pointsContainerStyle}>
-                  <div style={pointsValueStyle}>⭐ {user.points || 0}</div>
+                  <div style={pointsValueStyle}> {user.points || 0}</div>
                   <div style={pointsLabelStyle}>points</div>
                 </div>
 
                 {/* LEVEL */}
                 <div>
-                  <div style={levelBadgeStyle}>🎯 {user.level || "Beginner"}</div>
+                  <div style={levelBadgeStyle}>{user.level || "Beginner"}</div>
                 </div>
 
                 {/* EXPAND ICON */}

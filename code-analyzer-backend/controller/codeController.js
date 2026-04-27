@@ -976,13 +976,12 @@ exports.getRecentScans = async (req, res) => {
     const userId = req.userId;
     
     const result = await pool.query(`
-      SELECT id, language, file_name, created_at,status, 
+      SELECT id, language, file_name, created_at, status, 
              COALESCE(analysis_score, 0) as score, 
              COALESCE(bug_count, 0) as bugs
       FROM code_submissions 
       WHERE user_id = $1 
-      ORDER BY created_at DESC 
-      LIMIT 5
+      ORDER BY created_at DESC
     `, [userId]);
     
     const scans = result.rows.map(scan => ({
@@ -990,12 +989,11 @@ exports.getRecentScans = async (req, res) => {
       language: scan.language,
       file_name: scan.file_name || "Pasted Code",
       created_at: scan.created_at,
-      status: scan.status, // ✅ added
-      score: parseInt(scan.score) || 0,  // Ensure number
-      bugs: parseInt(scan.bugs) || 0     // Ensure number
+      status: scan.status,
+      score: parseInt(scan.score) || 0,
+      bugs: parseInt(scan.bugs) || 0
     }));
     
-    console.log("Recent scans sent:", scans); // Debug log
     res.json(scans);
   } catch (err) {
     console.error("Recent scans error:", err);

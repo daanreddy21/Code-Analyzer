@@ -41,9 +41,17 @@ function Dashboard() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);  
   const [unread, setUnread] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   
   // ✅ USE THEME FROM CONTEXT
   const { themeColors, theme } = useTheme();
+
+
+
+useEffect(() => {
+  setCurrentPage(1);
+}, [recentScans]);
 
   // --- LOGIC & EFFECTS (Untouched) ---
   useEffect(() => {
@@ -109,14 +117,32 @@ function Dashboard() {
   }, [token]);
 
   useEffect(() => {
-    const handleScroll = () => {
-      const header = document.querySelector('.dashboard-header');
-      if (window.scrollY > 50) header?.classList.add('scrolled');
-      else header?.classList.remove('scrolled');
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+      const handleScroll = () => {
+        const header = document.querySelector('.dashboard-header');
+        if (window.scrollY > 50) header?.classList.add('scrolled');
+        else header?.classList.remove('scrolled');
+      };
+      window.addEventListener('scroll', handleScroll);
+      return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    const btnStyle = {
+  padding: "8px 16px",
+  borderRadius: "8px",
+  border: "none",
+  background: themeColors.accent,
+  color: "#fff",
+  cursor: "pointer"
+};
+
+    const totalPages = Math.max(1, Math.ceil(recentScans.length / itemsPerPage));
+
+      const startIndex = (currentPage - 1) * itemsPerPage;
+
+      const paginatedScans = recentScans.slice(
+        startIndex,
+        startIndex + itemsPerPage
+    );
 
   const fetchDashboardData = async () => {
     try {
@@ -477,7 +503,7 @@ function Dashboard() {
                     </td>
                   </tr>
                 ) : (
-                  recentScans.map(scan => (
+                  paginatedScans.map(scan => (
                     <tr key={scan.id} style={{ borderBottom: `1px solid ${themeColors.border}` }}>
                       <td style={{ padding: '1rem 1.5rem' }}>
                         <span style={{ 
@@ -506,6 +532,34 @@ function Dashboard() {
                 )}
               </tbody>
             </table>
+            <div style={{ 
+              display: "flex", 
+              justifyContent: "center", 
+              gap: "10px", 
+              marginTop: "20px" 
+            }}>
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                style={btnStyle}
+              >
+                ⬅ Prev
+              </button>
+
+              <span style={{ color: themeColors.textSecondary }}>
+                Page {currentPage} of {totalPages}
+              </span>
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                style={btnStyle}
+              >
+                Next ➡
+              </button>
+
+            </div>
           </div>
         </div>
 

@@ -15,12 +15,13 @@ import SavedCodesPage from "./pages/SavedCodesPage";
 import SharePage from "./pages/SharePage";
 import Layout from "./components/Layout";
 import ChatPage from "./pages/ChatPage";
-import { ThemeProvider } from "./context/ThemeContext"; // ✅ NEW
+import { ThemeProvider } from "./context/ThemeContext";
 
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminProfile from "./pages/AdminProfile";
 import AdminStudentProgress from "./pages/AdminStudentProgress";
-import AdminLayout from "./components/admin/AdminLayout"; // ✅ NEW
+import AdminLayout from "./components/admin/AdminLayout";
+
 
 // 🔒 Protected Route
 const ProtectedRoute = ({ children }) => {
@@ -33,6 +34,7 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+
 // 🛡️ Admin Route
 const AdminRoute = ({ children }) => {
   const token = localStorage.getItem("token");
@@ -44,6 +46,19 @@ const AdminRoute = ({ children }) => {
 
   return children;
 };
+
+
+// 🔥 🔥 CHAT REDIRECT (IMPORTANT)
+const ChatRedirect = () => {
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  if (user?.role === "admin") {
+    return <Navigate to="/admin/chat" replace />;
+  }
+
+  return <Navigate to="/chat/user" replace />;
+};
+
 
 // 🔥 USER LAYOUT
 function LayoutWrapper() {
@@ -60,7 +75,10 @@ function LayoutWrapper() {
         <Route path="explain" element={<ProtectedRoute><ExplainPage /></ProtectedRoute>} />
         <Route path="code-runner" element={<ProtectedRoute><CodeRunnerPage /></ProtectedRoute>} />
         <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+
+        {/* ✅ UPDATED CHAT ROUTE */}
+        <Route path="chat/user" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+
         <Route path="saved-codes" element={<ProtectedRoute><SavedCodesPage /></ProtectedRoute>} />
         <Route path="share/:token" element={<SharePage />} />
       </Routes>
@@ -68,7 +86,8 @@ function LayoutWrapper() {
   );
 }
 
-// 🔥 ADMIN LAYOUT WRAPPER
+
+// 🔥 ADMIN LAYOUT
 function AdminWrapper() {
   return (
     <AdminLayout>
@@ -76,20 +95,26 @@ function AdminWrapper() {
         <Route index element={<AdminDashboard />} />
         <Route path="profile" element={<AdminProfile />} />
         <Route path="students" element={<AdminStudentProgress />} />
+
+        {/* ✅ ADMIN CHAT */}
+        <Route path="chat" element={<ChatPage />} />
       </Routes>
     </AdminLayout>
   );
 }
 
+
 function App() {
   return (
-    <ThemeProvider> {/* 🔥 IMPORTANT */}
+    <ThemeProvider>
       <BrowserRouter>
         <Routes>
 
           {/* 🌐 PUBLIC */}
           <Route path="/" element={<Landing />} />
- 
+
+          {/* 🔥 CHAT ENTRY POINT (IMPORTANT) */}
+          <Route path="/chat" element={<ChatRedirect />} />
 
           {/* 🔥 ADMIN */}
           <Route path="/admin/*" element={

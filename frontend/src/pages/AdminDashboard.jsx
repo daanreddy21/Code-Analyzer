@@ -8,6 +8,8 @@ import { useTheme } from "../context/ThemeContext";
 function AdminDashboard() {
   const navigate = useNavigate();
   const { themeColors, theme } = useTheme();
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const [submissions, setSubmissions] = useState([]);
   const [selectedCode, setSelectedCode] = useState(null);
@@ -28,6 +30,10 @@ function AdminDashboard() {
     setNewComment((prev) => prev + emojiData.emoji);
     setShowEmoji(false);
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, searchTerm, sortBy]);
 
   useEffect(() => {
     socket.on("new_comment", (comment) => {
@@ -144,6 +150,15 @@ function AdminDashboard() {
     return 0;
   });
 
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(sortedSubmissions.length / itemsPerPage));
+
+    const startIndex = (currentPage - 1) * itemsPerPage;
+
+    const paginatedSubmissions = sortedSubmissions.slice(
+      startIndex,
+      startIndex + itemsPerPage
+    );
   // Styles using themeColors
   const containerStyle = {
     minHeight: "100vh",
@@ -241,6 +256,18 @@ function AdminDashboard() {
       margin: "0 4px",
     },
   };
+
+  const paginationBtnStyle = {
+  padding: "8px 16px",
+  borderRadius: "8px",
+  border: `1px solid ${themeColors.border}`,
+  background: themeColors.bgInner,
+  color: themeColors.textPrimary,
+  cursor: "pointer",
+  fontSize: "14px",
+  fontWeight: "500",
+  transition: "all 0.2s ease"
+};
 
   return (
     <div style={containerStyle}>
@@ -390,7 +417,7 @@ function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {sortedSubmissions.map((item) => (
+                {paginatedSubmissions.map((item) => (
                   <tr key={item.id} style={{ borderBottom: `1px solid ${themeColors.border}50` }}>
                     <td style={{ padding: "12px", color: themeColors.textPrimary }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -441,6 +468,39 @@ function AdminDashboard() {
                 ))}
               </tbody>
             </table>
+            {sortedSubmissions.length > 0 && (
+              <div style={{ 
+                display: "flex", 
+                justifyContent: "center", 
+                gap: "10px", 
+                marginTop: "20px" 
+              }}>
+                
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  style={{
+                      ...paginationBtnStyle,
+                      opacity: currentPage === 1 ? 0.5 : 1
+                    }}
+                >
+                  ⬅ Prev
+                </button>
+
+                <span style={{ color: themeColors.textSecondary }}>
+                  Page {currentPage} of {totalPages}
+                </span>
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage >= totalPages}
+                  style={buttonStyle.secondary}
+                >
+                  Next ➡
+                </button>
+
+              </div>
+            )}
           </div>
         )}
       </div>
