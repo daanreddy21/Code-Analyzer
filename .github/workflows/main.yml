@@ -1,0 +1,40 @@
+name: Code Analyzer CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2️⃣ Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      # 3️⃣ Install Backend Dependencies
+      - name: Install backend dependencies
+        run: |
+          cd code-analyzer-backend
+          npm install
+
+      # 4️⃣ Install Frontend Dependencies
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm install
+
+      # 5️⃣ Build Frontend
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
