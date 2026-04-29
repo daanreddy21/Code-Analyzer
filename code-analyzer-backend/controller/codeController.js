@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const multer = require("multer");
+const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const { applyRewards } = require("./rewardController");
@@ -680,6 +681,110 @@ exports.analyzeCode = async (req, res) => {
       );
     }
 
+          // === CODE STYLE / FORMATTING ANALYSIS ===
+
+      // Split into all lines (including empty ones)
+      const allLines = code.split("\n");
+
+      // Track indentation patterns
+      let indentSizes = [];
+      let hasTabs = false;
+      let hasSpaces = false;
+
+      allLines.forEach((line) => {
+        if (!line.trim()) return; // skip empty lines
+
+        const leading = line.match(/^\s*/)[0];
+
+        // Detect tabs
+        if (leading.includes("\t")) {
+          hasTabs = true;
+          indentSizes.push("tab");
+        }
+
+        // Detect spaces
+        if (leading.includes(" ")) {
+          hasSpaces = true;
+          indentSizes.push(leading.length);
+        }
+      });
+
+      // 🔴 1. Mixed Tabs & Spaces
+      if (hasTabs && hasSpaces) {
+        addIssue(
+          "MEDIUM",
+          "Mixed Tabs and Spaces",
+          "Avoid mixing tabs and spaces. Use only one style consistently.",
+          12
+        );
+      }
+
+      // 🔴 2. Inconsistent Indentation
+      const numericIndents = indentSizes.filter(i => typeof i === "number");
+
+      if (numericIndents.length > 0) {
+        const freq = {};
+
+        numericIndents.forEach(i => {
+          freq[i] = (freq[i] || 0) + 1;
+        });
+
+        // Find most common indentation
+        const mostCommonIndent = Object.keys(freq).reduce((a, b) =>
+          freq[a] > freq[b] ? a : b
+        );
+
+        // Check inconsistency
+        const inconsistent = numericIndents.some(i => i != mostCommonIndent);
+
+        if (inconsistent) {
+          addIssue(
+            "LOW",
+            "Inconsistent Indentation",
+            `Use consistent indentation (${mostCommonIndent} spaces detected as standard).`,
+            8
+          );
+        }
+      }
+
+      // 🔴 3. Irregular Spacing (operators)
+      const spacingIssues = allLines.some(line =>
+        /\w=\w/.test(line) || /\w\s{2,}\w/.test(line)
+      );
+
+      if (spacingIssues) {
+        addIssue(
+          "LOW",
+          "Inconsistent Spacing",
+          "Maintain consistent spacing around operators and avoid multiple spaces.",
+          5
+        );
+      }
+
+      // 🔴 4. Trailing Spaces
+      const trailingSpaces = allLines.some(line => /\s+$/.test(line));
+
+      if (trailingSpaces) {
+        addIssue(
+          "LOW",
+          "Trailing Spaces Detected",
+          "Remove unnecessary spaces at end of lines.",
+          4
+        );
+      }
+
+      // 🔴 5. Too Many Empty Lines
+      const emptyLines = allLines.filter(line => !line.trim()).length;
+
+      if (emptyLines > allLines.length * 0.3) {
+        addIssue(
+          "LOW",
+          "Too Many Empty Lines",
+          "Reduce unnecessary blank lines for better readability.",
+          4
+        );
+      }
+
     // Update DB
     await pool.query(
       "UPDATE code_submissions SET analysis_score = $1, bug_count = $2, metrics = $3 WHERE id = $4",
@@ -722,6 +827,46 @@ exports.analyzeCode = async (req, res) => {
       issues.length
     );
 
+
+    let aiSuggestions = [];
+
+    try {
+      const aiResponse = await axios.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+          model: "openai/gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a code style analyzer. Give short suggestions about indentation, spacing, and formatting."
+            },
+            {
+              role: "user",
+              content: `Analyze this code and give formatting improvements only:\n\n${code}`
+            }
+          ]
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+
+      const aiText = aiResponse.data.choices[0].message.content;
+
+      aiSuggestions.push({
+        type: "AI",
+        title: "AI Code Suggestions",
+        suggestion: aiText,
+        penalty: 0
+      });
+
+    } catch (err) {
+      console.log("OpenRouter AI Error:", err.message);
+    }
+
     // Format issues for display
     const issuesDisplay = issues.map((issue) => {
       const prefix =
@@ -742,7 +887,7 @@ ${issue.suggestion}`;
       code,
       language: result.rows[0].language,
       score: Math.max(0, Math.round(score)),
-      issues,
+      issues: [...issues, ...aiSuggestions],
       issuesDisplay,
       metrics,
       rewards: rewardData,
