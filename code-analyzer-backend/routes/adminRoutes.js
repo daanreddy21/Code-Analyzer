@@ -19,6 +19,8 @@ router.put("/reject/:id", authenticateToken, adminOnly, adminController.rejectSu
 
 router.put("/bookmark/:id", adminController.toggleBookmark);
 
+router.put("/admin/pin/:id", adminController.togglePin);
+
 router.get("/users-progress", adminController.getAllUsersProgress);
 
 router.get("/user-stats/:userId", adminController.getUserStatsByAdmin);

@@ -11,7 +11,8 @@ exports.getSubmissions = async (req, res) => {
         cs.language, 
         cs.status, 
         cs.created_at,
-        cs.is_bookmarked,   -- ⭐ ADDED
+        cs.is_bookmarked, 
+        cs.pinned, 
         u.name AS user_name
       FROM code_submissions cs
       JOIN users u ON cs.user_id = u.id
@@ -20,14 +21,20 @@ exports.getSubmissions = async (req, res) => {
     const values = [];
 
     // ⭐ 1. BOOKMARK FILTER (priority)
-    if (bookmarked === "true") {
-      query += " WHERE cs.is_bookmarked = true";
-    } 
-    // 🔹 2. STATUS FILTER
-    else if (status && status !== "all") {
-      query += " WHERE cs.status = $1";
-      values.push(status);
-    }
+const conditions = [];
+
+if (bookmarked === "true") {
+  conditions.push("(cs.is_bookmarked = true OR cs.pinned = true)");
+}
+
+if (status && status !== "all") {
+  values.push(status);
+  conditions.push(`cs.status = $${values.length}`);
+}
+
+if (conditions.length > 0) {
+  query += " WHERE " + conditions.join(" AND ");
+}
 
     query += " ORDER BY cs.created_at DESC";
 
@@ -332,6 +339,30 @@ exports.getUserGraphByAdmin = async (req, res) => {
     `, [userId]);
 
     res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.togglePin = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `UPDATE code_submissions 
+       SET pinned = NOT pinned 
+       WHERE id = $1 
+       RETURNING pinned`,
+      [id]
+    );
+
+    res.json({
+      message: result.rows[0].pinned
+        ? "📌 Pinned"
+        : "❌ Unpinned",
+      pinned: result.rows[0].pinned
+    });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

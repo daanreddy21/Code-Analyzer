@@ -41,9 +41,12 @@ router.get("/share/:token", codeController.getSharedData);
 router.get("/deleted", authMiddleware, codeController.getDeletedCodes);
 router.post("/deleted/:original_id/undo", authMiddleware, codeController.undoDelete);
 
+router.put("/pin/:id", authMiddleware, codeController.togglePin);
 // 🔥 4. COMPILER UPDATE FIRST (CRITICAL!)
 // 🔥 4. UPDATE
 router.put("/:id", authMiddleware, codeController.updateCode);
+
+
 
 // 🔥 5. DELETE
 router.delete("/:id", authMiddleware, codeController.softDeleteCode);

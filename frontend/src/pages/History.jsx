@@ -55,7 +55,12 @@ function History() {
   const [selectedVersion, setSelectedVersion] = useState(null);
   const token = localStorage.getItem("token");
   const [showEmoji, setShowEmoji] = useState(false);
-
+  const [deletedPage, setDeletedPage] = useState(1);
+  const deletedPerPage = 5;
+  const MAX_PINNED = 5;
+  const [toast, setToast] = useState(null);
+  
+  const [showPinned, setShowPinned] = useState(false); // now stores IDs only  const [showPinned, setShowPinned] = useState(false);
   // ✅ USE THEME FROM CONTEXT
   const { themeColors, theme } = useTheme();
 
@@ -167,6 +172,7 @@ function History() {
     }, 500);
     return () => clearTimeout(timer);
   }, [editedCode]);
+
   
   const fetchVersions = async (id) => {
     try {
@@ -200,6 +206,8 @@ function History() {
     }
   }, [analysisResult]);
 
+
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -215,6 +223,9 @@ function History() {
       setLoading(false);
     }
   };
+
+
+
 
   const fetchDeleted = async () => {
     try {
@@ -270,6 +281,43 @@ function History() {
       alert("Delete failed"); 
     }
   }, []);
+
+
+const togglePin = async (id) => {
+  try {
+    const pinnedCount = history.filter(item => item.is_pinned).length;
+
+    const currentItem = history.find(item => item.id === id);
+
+    // 🚫 Prevent exceeding limit
+    if (!currentItem.is_pinned && pinnedCount >= MAX_PINNED) {
+      setToast({
+        type: "warning",
+        message: `📌 Pin limit reached! You can only pin up to ${MAX_PINNED} files.`,
+        tip: "💡 Unpin an existing file to add a new one."
+      });
+
+      // Auto hide
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+
+    await API.put(`/code/pin/${id}`);
+    fetchData();
+
+  } catch (err) {
+    alert("❌ Failed to update pin");
+  }
+};
+
+const totalDeletedPages = Math.ceil(deletedFiles.length / deletedPerPage);
+
+const deletedStartIndex = (deletedPage - 1) * deletedPerPage;
+
+const paginatedDeletedFiles = deletedFiles.slice(
+  deletedStartIndex,
+  deletedStartIndex + deletedPerPage
+);
 
   const deleteProject = useCallback(async (id) => {
     if (!window.confirm("Are you sure you want to delete this project?")) return;
@@ -421,7 +469,16 @@ function History() {
 
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentItems = filteredHistory.slice(startIndex, startIndex + itemsPerPage);
+    const sortedItems = [...filteredHistory].sort((a, b) => {
+      if (a.is_pinned === b.is_pinned) return 0;
+      return a.is_pinned ? -1 : 1;
+    });
 
+// ONLY SHOWING CHANGED IMPORTANT PARTS (FULL FILE IS TOO LARGE)
+// 👉 YOU MUST REPLACE THESE PARTS IN YOUR FILE
+
+// ✅ ADD THIS ABOVE return()
+const pinnedFiles = history.filter(item => item.is_pinned);
   // Animation styles
   const animationStyles = `
     @keyframes modalScaleIn { 
@@ -441,6 +498,16 @@ function History() {
     }
     .modal-content {
       animation: modalScaleIn 0.3s ease;
+    }
+      @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
     }
   `;
 
@@ -520,6 +587,7 @@ function History() {
               <button 
                 onClick={() => {
                   setShowDeleted(!showDeleted);
+                  setDeletedPage(1); // reset page
                   if (!showDeleted) fetchDeleted();
                 }}
                 style={{
@@ -534,6 +602,24 @@ function History() {
                 }}
               >
                 {showDeleted ? '📁 Active Files' : '🗑️ Deleted Files'}
+              </button>
+              <button 
+                onClick={() => {
+                  setShowDeleted(false);
+                  setShowPinned(prev => !prev);
+                }}
+                style={{
+                  background: showPinned ? themeColors.accent : themeColors.border,
+                  color: themeColors.textPrimary,
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '13px'
+                }}
+              >
+                📌 Pinned Files
               </button>
               <select 
                 onChange={(e) => setLanguageFilter(e.target.value)} 
@@ -555,6 +641,8 @@ function History() {
               </select>
             </div>
           </div>
+
+
           
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -569,7 +657,7 @@ function History() {
               </thead>
               <tbody>
                 {showDeleted ? (
-                  deletedFiles.map(item => (
+                  paginatedDeletedFiles.map(item => (
                     <tr key={item.original_id} style={{ borderBottom: `1px solid ${themeColors.border}` }}>
                       <td style={{ padding: '16px' }}>🗑️</td>
                       <td style={{ padding: '16px', fontWeight: '500', color: themeColors.textPrimary }}>{item.file_name}</td>
@@ -590,8 +678,85 @@ function History() {
                       </td>
                     </tr>
                   ))
-                ) : (
-                  currentItems.map(item => (
+        ) : showPinned ? (
+
+          pinnedFiles.length > 0 ? (
+            pinnedFiles.map(item => (
+                <tr
+                  key={item.id}
+                  style={{
+                    borderBottom: `1px solid ${themeColors.border}`,
+                    background: item.is_pinned ? `${themeColors.warning}15` : "transparent",
+                    borderLeft: item.is_pinned ? `4px solid ${themeColors.warning}` : "none",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                <td style={{ padding: '16px' }}>
+                  <span style={{
+                    background: themeColors.accentGlow,
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    color: themeColors.accent
+                  }}>
+                    {item.language}
+                  </span>
+                </td>
+
+                <td style={{ padding: '16px', fontWeight: '500' }}>
+                  {item.file_name}
+
+                  {item.is_pinned && (
+                    <span style={{
+                      marginLeft: "8px",
+                      fontSize: "12px",
+                      color: themeColors.warning
+                    }}>
+                      📌
+                    </span>
+                  )}
+                </td>
+
+                <td style={{ padding: '16px' }}>
+                  {new Date(item.created_at).toLocaleDateString()}
+                </td>
+
+                <td style={{ padding: '16px' }}>
+                  <span style={{
+                    background: themeColors.warning,
+                    color: 'white',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '11px'
+                  }}>
+                    📌 PINNED
+                  </span>
+                </td>
+
+                <td style={{ padding: '16px', textAlign: 'center' }}>
+                  <button onClick={() => viewCode(item.id)} style={actionButtonStyle(themeColors, themeColors.info)}>
+                    View
+                  </button>
+
+                  <button onClick={() => togglePin(item.id)} style={actionButtonStyle(themeColors, themeColors.danger)}>
+                    ❌ Unpin
+                  </button>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="5" style={{ textAlign: 'center', padding: '40px' }}>
+                No pinned files
+              </td>
+            </tr>
+          )
+
+
+                        ) : (
+                  sortedItems
+                    .slice(startIndex, startIndex + itemsPerPage)
+                    .map(item => (
                     <tr key={item.id} style={{ borderBottom: `1px solid ${themeColors.border}`, transition: 'background 0.2s' }}>
                       <td style={{ padding: '16px' }}>
                         <span style={{ 
@@ -604,7 +769,19 @@ function History() {
                           {item.language}
                         </span>
                       </td>
-                      <td style={{ padding: '16px', fontWeight: '500', color: themeColors.textPrimary }}>{item.file_name || "Snippet"}</td>
+                      <td style={{ padding: '16px', fontWeight: '500', color: themeColors.textPrimary }}>
+                          {item.file_name || "Snippet"}
+
+                          {item.is_pinned && (
+                            <span style={{
+                              marginLeft: "8px",
+                              fontSize: "12px",
+                              color: themeColors.warning
+                            }}>
+                              📌
+                            </span>
+                          )}
+                        </td>
                       <td style={{ padding: '16px', color: themeColors.textSecondary, fontSize: '13px' }}>{new Date(item.created_at).toLocaleDateString()}</td>
                       <td style={{ padding: '16px' }}>
                         <span style={{
@@ -640,10 +817,23 @@ function History() {
                             {isAnalyzing ? <span className="spinner-small"></span> : <FontAwesomeIcon icon={faChartLine} />}
                             Analyze
                           </button>
+
+                        <button
+                          onClick={() => togglePin(item.id)}
+                          style={actionButtonStyle(
+                            themeColors,
+                            item.is_pinned ? themeColors.warning : themeColors.border
+                          )}
+                        >
+                          {item.is_pinned ? "❌ Unpin" : "📌 Pin"}
+                        </button>
                         </div>
                       </td>
                     </tr>
                   ))
+
+
+    
                 )}
               </tbody>
             </table>
@@ -669,6 +859,37 @@ function History() {
               >
                 Next →
               </button>
+            </div>
+          )}
+
+          {showDeleted && totalDeletedPages > 1 && (
+            <div style={{ 
+              display: "flex", 
+              justifyContent: "center", 
+              marginTop: "24px", 
+              gap: "12px" 
+            }}>
+              
+              <button
+                onClick={() => setDeletedPage(prev => Math.max(prev - 1, 1))}
+                disabled={deletedPage === 1}
+                style={paginationButtonStyle(themeColors, deletedPage === 1)}
+              >
+                ← Previous
+              </button>
+
+              <span style={{ color: themeColors.textSecondary, padding: "8px 16px" }}>
+                Page {deletedPage} of {totalDeletedPages}
+              </span>
+
+              <button
+                onClick={() => setDeletedPage(prev => Math.min(prev + 1, totalDeletedPages))}
+                disabled={deletedPage === totalDeletedPages}
+                style={paginationButtonStyle(themeColors, deletedPage === totalDeletedPages)}
+              >
+                Next →
+              </button>
+
             </div>
           )}
         </div>
@@ -1199,6 +1420,28 @@ function History() {
           <div style={{ textAlign: 'center' }}>
             <div className="spinner" style={{ width: '50px', height: '50px', border: `4px solid ${themeColors.border}`, borderTop: `4px solid ${themeColors.accent}`, borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '20px' }}></div>
             <h2 style={{ color: '#fff' }}>SCANNING PROJECT...</h2>
+          </div>
+        </div>
+      )}
+      {toast && (
+        <div style={{
+          position: "fixed",
+          top: "20px",
+          right: "20px",
+          background: toast.type === "warning" ? themeColors.warning : themeColors.danger,
+          color: "white",
+          padding: "16px 20px",
+          borderRadius: "12px",
+          boxShadow: "0 8px 25px rgba(0,0,0,0.3)",
+          zIndex: 9999,
+          minWidth: "280px",
+          animation: "slideIn 0.3s ease"
+        }}>
+          <div style={{ fontWeight: "600", marginBottom: "4px" }}>
+            {toast.message}
+          </div>
+          <div style={{ fontSize: "12px", opacity: 0.9 }}>
+            {toast.tip}
           </div>
         </div>
       )}

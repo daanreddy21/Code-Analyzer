@@ -207,7 +207,8 @@ exports.getHistory = async (req, res) => {
         id, language, file_name, created_at, status,
         rejection_reason,
         COALESCE(analysis_score, 0) as score,
-        COALESCE(bug_count, 0) as bugs
+        COALESCE(bug_count, 0) as bugs,
+        is_pinned 
       FROM code_submissions
       WHERE user_id=$1
       ORDER BY created_at DESC
@@ -898,6 +899,33 @@ ${issue.suggestion}`;
   }
 };
 
+// 🔥 PIN / UNPIN
+exports.togglePin = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const user_id = req.userId;
+
+    const result = await pool.query(
+      `
+      UPDATE code_submissions
+      SET is_pinned = NOT is_pinned
+      WHERE id = $1 AND user_id = $2
+      RETURNING is_pinned
+      `,
+      [id, user_id]
+    );
+
+    res.json({
+      message: "Pin toggled",
+      isPinned: result.rows[0].is_pinned
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // 🔥 FILE-WISE TIMELINE
 exports.getFileAnalysisTimeline = async (req, res) => {
   try {
@@ -1360,7 +1388,8 @@ module.exports = {
   getCodeVersions: exports.getCodeVersions,
   getAllVersionsGrouped: exports.getAllVersionsGrouped,
   generateShareLink: exports.generateShareLink,
-  getSharedData: exports.getSharedData
+  getSharedData: exports.getSharedData,
+  togglePin: exports.togglePin
 
   
 };

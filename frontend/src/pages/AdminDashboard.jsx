@@ -48,21 +48,25 @@ function AdminDashboard() {
     }
   }, [user, navigate]);
 
-  const fetchSubmissions = async (status) => {
-    try {
-      setLoading(true);
-      let url = `/admin/submissions?status=${status}`;
-      if (status === "bookmarks") {
-        url = `/admin/submissions?bookmarked=true`;
-      }
-      const res = await API.get(url);
-      setSubmissions(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+const fetchSubmissions = async (status) => {
+  try {
+    setLoading(true);
+
+    let url = `/admin/submissions?status=${status}`;
+
+    // ✅ FIX: handle "bookmarks/Pinned"
+    if (status === "bookmarks/Pinned") {
+      url = `/admin/submissions?bookmarked=true`;
     }
-  };
+
+    const res = await API.get(url);
+    setSubmissions(res.data);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchSubmissions(filter);
@@ -150,6 +154,7 @@ function AdminDashboard() {
     return 0;
   });
 
+  
   // Pagination
   const totalPages = Math.max(1, Math.ceil(sortedSubmissions.length / itemsPerPage));
 
@@ -166,6 +171,24 @@ function AdminDashboard() {
     background: themeColors.background,
     color: themeColors.textPrimary,
   };
+
+  const toggleBookmark = async (id) => {
+  try {
+    await API.put(`/admin/bookmark/${id}`);
+    fetchSubmissions(filter); // refresh
+  } catch (err) {
+    console.error("Bookmark failed");
+  }
+};
+
+// const togglePin = async (id) => {
+//   try {
+//     await API.put(`/admin/pin/${id}`);
+//     fetchSubmissions(filter); // refresh
+//   } catch (err) {
+//     console.error("Pin failed");
+//   }
+// };
 
   const cardStyle = {
     background: themeColors.cardBg,
@@ -373,9 +396,11 @@ function AdminDashboard() {
 
         {/* Filters */}
         <div style={{ marginBottom: "25px", display: "flex", flexWrap: "wrap", gap: "10px" }}>
-          {["pending", "approved", "rejected", "all", "bookmarks"].map((f) => (
+          {["pending", "approved", "rejected", "all", "bookmarks/Pinned"].map((f) => (
             <button key={f} onClick={() => setFilter(f)} style={filterBtn(filter === f)}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
+              {f === "bookmarks/Pinned"
+                ? "📌 Pinned"
+                : f.charAt(0).toUpperCase() + f.slice(1)}
             </button>
           ))}
         </div>
@@ -418,11 +443,22 @@ function AdminDashboard() {
               </thead>
               <tbody>
                 {paginatedSubmissions.map((item) => (
-                  <tr key={item.id} style={{ borderBottom: `1px solid ${themeColors.border}50` }}>
+                  <tr
+                    key={item.id}
+                    style={{
+                      background: item.is_bookmarked ? "rgba(245, 158, 11, 0.08)" : "transparent",
+                      borderLeft: item.is_bookmarked ? "4px solid #f59e0b" : "none"
+                    }}
+                  >
                     <td style={{ padding: "12px", color: themeColors.textPrimary }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <span>📄</span>
                         {item.file_name || "Unknown File"}
+                        {item.is_bookmarked && (
+                          <span style={{ marginLeft: "6px", color: "#f59e0b" }}>
+                            📌
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td style={{ padding: "12px" }}>
@@ -438,6 +474,21 @@ function AdminDashboard() {
                       <button onClick={() => handleView(item.id)} style={buttonStyle.primary}>
                         View Code
                       </button>
+                         {/* ⭐ PIN BUTTON (ADD HERE) */}
+                      <button
+                        onClick={() => toggleBookmark(item.id)}
+                        style={{
+                          background: item.is_bookmarked ? "#f59e0b" : "#2d3748",
+                          color: "white",
+                          padding: "6px 12px",
+                          borderRadius: "8px",
+                          border: "none",
+                          cursor: "pointer",
+                          marginLeft: "6px"
+                        }}
+                      >
+                        {item.is_bookmarked ? "📌 Unpin" : "⭐ Pin"}
+                      </button> 
                       {item.status === "pending" && (
                         <>
                           <button onClick={() => handleApprove(item.id)} style={buttonStyle.success}>
