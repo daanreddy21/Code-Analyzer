@@ -5,6 +5,8 @@ import AdminFooter from "./AdminFooter";
 import API from "../../services/api";
 import { useTheme } from "../../context/ThemeContext";
 import socket from "../../services/socket";
+import useInactivityTracker from "../../hooks/useInactivityTracker";
+import InactivityPopup from "../../components/InactivityPopup";
 
 function AdminLayout({ children }) {
   const navigate = useNavigate();
@@ -12,6 +14,14 @@ function AdminLayout({ children }) {
 
   const [chatUnread, setChatUnread] = useState(0);
   const [notifUnread, setNotifUnread] = useState(0);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/");
+  };
+
+    const { showPopup, countdown, resetTimer } = useInactivityTracker(handleLogout);
+
 
   // 🔔 SOCKET REALTIME
   useEffect(() => {
@@ -64,7 +74,7 @@ function AdminLayout({ children }) {
       />
 
       {/* ✅ MAIN */}
-      <main className="admin-main" style={{ 
+      <main style={{ 
         paddingTop: "80px", 
         minHeight: "80vh",
         backgroundColor: themeColors.background,
@@ -75,6 +85,14 @@ function AdminLayout({ children }) {
 
       {/* ✅ FOOTER */}
       <AdminFooter />
+
+      {/* 🔥 INACTIVITY POPUP */}
+      {showPopup && (
+        <InactivityPopup 
+          countdown={countdown} 
+          onStay={resetTimer}
+        />
+      )}
 
     </div>
   );

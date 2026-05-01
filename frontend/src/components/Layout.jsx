@@ -10,6 +10,8 @@ import { useTheme } from "../context/ThemeContext";
 import { useLocation } from "react-router-dom";
 import AdvancedInfoPopup from "./AdvancedInfoPopup";
 import pageFullInfo from "../utils/pageFullInfo";
+import useInactivityTracker from "../hooks/useInactivityTracker";
+import InactivityPopup from "./InactivityPopup";
 
 function Layout({ children, navigate }) {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -28,6 +30,15 @@ function Layout({ children, navigate }) {
   const [customInfo, setCustomInfo] = useState(null);
 
   const { theme, toggleTheme, themeColors } = useTheme();
+
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/");
+  };
+
+    const { showPopup, countdown, resetTimer } = useInactivityTracker(handleLogout);
+
 
   // ✅ GLOBAL CUSTOM INFO FUNCTION
   const showCustomInfo = (info) => {
@@ -210,6 +221,12 @@ function Layout({ children, navigate }) {
       >
         ℹ️
       </div>
+      {showPopup && (
+        <InactivityPopup 
+          countdown={countdown} 
+          onStay={resetTimer}
+        />
+      )}
     </div>
   );
 }
