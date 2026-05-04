@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCode,
@@ -59,6 +59,13 @@ function History() {
   const deletedPerPage = 5;
   const MAX_PINNED = 5;
   const [toast, setToast] = useState(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [showProgressBar, setShowProgressBar] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const analysisCodeRef = useRef(null);
+
+  const codeContainerRef = useRef(null);
+  let scrollTimeout = useRef(null);
   
   const [showPinned, setShowPinned] = useState(false); // now stores IDs only  const [showPinned, setShowPinned] = useState(false);
   // ✅ USE THEME FROM CONTEXT
@@ -172,6 +179,54 @@ function History() {
     }, 500);
     return () => clearTimeout(timer);
   }, [editedCode]);
+
+useEffect(() => {
+  const codeEl = codeContainerRef.current;
+  const analysisEl = analysisCodeRef.current;
+
+  // ✅ HISTORY MODAL SCROLL
+  if (codeEl) {
+    const handler = () => handleScroll(codeContainerRef);
+    codeEl.addEventListener("scroll", handler);
+
+    return () => codeEl.removeEventListener("scroll", handler);
+  }
+
+  // ✅ ANALYSIS MODAL SCROLL
+  if (analysisEl) {
+    const handler = () => handleScroll(analysisCodeRef);
+    analysisEl.addEventListener("scroll", handler);
+
+    return () => analysisEl.removeEventListener("scroll", handler);
+  }
+
+}, [selectedCode, analysisResult]);
+
+const handleScroll = (ref) => {
+  const el = ref.current;
+  if (!el) return;
+
+  const scrollTop = el.scrollTop;
+  const scrollHeight = el.scrollHeight;
+  const clientHeight = el.clientHeight;
+
+  if (scrollHeight <= clientHeight) {
+    setShowProgressBar(false);
+    return;
+  }
+
+  setShowProgressBar(true);
+
+  const progress = (scrollTop / (scrollHeight - clientHeight)) * 100;
+  setScrollProgress(progress);
+
+  setIsScrolling(true);
+
+  clearTimeout(scrollTimeout.current);
+  scrollTimeout.current = setTimeout(() => {
+    setIsScrolling(false);
+  }, 1200);
+};
 
   
   const fetchVersions = async (id) => {
@@ -338,6 +393,9 @@ const paginatedDeletedFiles = deletedFiles.slice(
       setSelectedCode({...res.data, id: id }); 
       setEditedCode(res.data.code);
       setOriginalCode(res.data.code);
+      setScrollProgress(0);
+      setShowProgressBar(false);
+      setIsScrolling(false);
       setLiveAnalysis([]);
       setEditMode(false);
       const commentRes = await API.get(`/comments/${id}`);
@@ -499,7 +557,7 @@ const pinnedFiles = history.filter(item => item.is_pinned);
     .modal-content {
       animation: modalScaleIn 0.3s ease;
     }
-      @keyframes slideIn {
+    @keyframes slideIn {
       from {
         transform: translateX(100%);
         opacity: 0;
@@ -508,6 +566,10 @@ const pinnedFiles = history.filter(item => item.is_pinned);
         transform: translateX(0);
         opacity: 1;
       }
+    }
+    @keyframes progressShimmer {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 200% 50%; }
     }
   `;
 
@@ -1013,24 +1075,76 @@ const pinnedFiles = history.filter(item => item.is_pinned);
                   borderRadius: "16px",
                   border: `1px solid ${themeColors.border}`
                 }}>
-                  {editMode ? (
-                    <textarea
-                      value={editedCode}
-                      onChange={(e) => setEditedCode(e.target.value)}
-                      style={{
-                        width: "100%",
-                        minHeight: "400px",
-                        background: "transparent",
-                        color: themeColors.textPrimary,
-                        border: "none",
-                        outline: "none",
-                        fontFamily: "'Fira Code', monospace",
-                        fontSize: "13px",
-                        lineHeight: "1.6",
-                        resize: "vertical"
-                      }}
-                    />
-                  ) : (
+              {editMode ? (
+                <textarea
+                  value={editedCode}
+                  onChange={(e) => setEditedCode(e.target.value)}
+                  style={{
+                    width: "100%",
+                    minHeight: "400px",
+                    background: "transparent",
+                    color: themeColors.textPrimary,
+                    border: "none",
+                    outline: "none",
+                    fontFamily: "'Fira Code', monospace",
+                    fontSize: "13px",
+                    lineHeight: "1.6",
+                    resize: "vertical"
+                  }}
+                />
+              ) : (
+                <div style={{ position: "relative" }}>
+
+                  {/* ✅ PROGRESS BAR */}
+                {showProgressBar && (
+                  <div style={{
+                    position: "sticky",
+                    top: 0,
+                    height: "5px",
+                    width: "100%",
+                    background: "transparent",
+                    zIndex: 20,
+                    overflow: "hidden"
+                  }}>
+                    <div style={{
+                      height: "100%",
+                      width: `${scrollProgress}%`,
+                      
+                      // 🔥 GRADIENT COLOR
+                          background: `linear-gradient(
+                            90deg,
+                            ${themeColors.accent},
+                            #00f2fe,
+                            ${themeColors.accent}
+                          )`,
+                          backgroundSize: "200% 100%",
+                          animation: isScrolling ? "progressShimmer 2s linear infinite" : "none",
+
+                      // 🔥 SMOOTH ANIMATION
+                      transition: "width 0.15s ease-out",
+
+                      // 🔥 GLOW EFFECT
+                      boxShadow: `
+                        0 0 8px ${themeColors.accent},
+                        0 0 12px ${themeColors.accent}
+                      `,
+
+                      borderRadius: "0 4px 4px 0",
+
+                      // 🔥 FADE WHEN IDLE
+                      opacity: isScrolling ? 1 : 0.5
+                    }} />
+                  </div>
+                )}
+
+                  {/* ✅ SCROLLABLE CODE */}
+                  <div
+                    ref={codeContainerRef}
+                    style={{
+                      maxHeight: "500px",
+                      overflowY: "auto"
+                    }}
+                  >
                     <pre style={{ 
                       margin: 0, 
                       color: themeColors.textPrimary, 
@@ -1041,7 +1155,10 @@ const pinnedFiles = history.filter(item => item.is_pinned);
                     }}>
                       {selectedCode.code}
                     </pre>
-                  )}
+                  </div>
+
+                </div>
+              )}
                 </div>
               </div>
 
@@ -1277,12 +1394,67 @@ const pinnedFiles = history.filter(item => item.is_pinned);
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden', flexWrap: 'wrap' }}>
               <div style={{ flex: 1.2, background: themeColors.background, padding: '24px', overflow: 'auto', minWidth: '300px' }}>
                 <div style={{ color: themeColors.textSecondary, fontSize: '11px', marginBottom: '12px', fontWeight: 'bold' }}>SOURCE CODE PREVIEW</div>
-                <pre style={{ margin: 0, color: themeColors.textPrimary, fontFamily: "'Fira Code', monospace", fontSize: '13px', lineHeight: '1.6' }}>
-                  <code>{selectedVersion?.code || analysisResult.code}</code>
-                </pre>
-                {analysisResult.rewards && (
-                  <RewardCard data={analysisResult.rewards} title="🏆 File Rewards" />
-                )}
+                <div style={{ position: "relative" }}>
+
+                  {/* ✅ PROGRESS BAR */}
+                  {showProgressBar && (
+                    <div style={{
+                      position: "sticky",
+                      top: 0,
+                      height: "5px",
+                      width: "100%",
+                      zIndex: 20,
+                      overflow: "hidden"
+                    }}>
+                      <div style={{
+                        height: "100%",
+                        width: `${scrollProgress}%`,
+
+                        background: `linear-gradient(
+                          90deg,
+                          ${themeColors.accent},
+                          #00f2fe,
+                          ${themeColors.accent}
+                        )`,
+
+                        backgroundSize: "200% 100%",
+                        animation: isScrolling ? "progressShimmer 2s linear infinite" : "none",
+
+                        transition: "width 0.15s ease-out",
+                        boxShadow: `0 0 8px ${themeColors.accent}`,
+                        borderRadius: "0 4px 4px 0",
+                        opacity: isScrolling ? 1 : 0.5
+                      }} />
+                    </div>
+                  )}
+
+                  {/* ✅ SCROLLABLE CODE */}
+                  <div
+                    ref={analysisCodeRef}
+                    style={{
+                      maxHeight: "500px",
+                      overflowY: "auto"
+                    }}
+                  >
+                    {/* 🔹 CODE */}
+                    <pre style={{
+                      margin: 0,
+                      color: themeColors.textPrimary,
+                      fontFamily: "'Fira Code', monospace",
+                      fontSize: '13px',
+                      lineHeight: '1.6'
+                    }}>
+                      <code>{selectedVersion?.code || analysisResult.code}</code>
+                    </pre>
+
+                    {/* 🔹 REWARDS (NOW SCROLLABLE ✅) */}
+                    {analysisResult.rewards && (
+                      <RewardCard data={analysisResult.rewards} title="🏆 File Rewards" />
+                    )}
+                  </div>
+
+                </div>
+
               </div>
 
               <div style={{ flex: 1, padding: '24px', overflowY: 'auto', background: themeColors.cardBg, borderLeft: `1px solid ${themeColors.border}`, minWidth: '350px' }}>

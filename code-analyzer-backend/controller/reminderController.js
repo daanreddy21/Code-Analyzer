@@ -15,43 +15,44 @@ exports.runSmartReminder = async () => {
     for (let row of result.rows) {
       const { id, user_id, bug_count, file_name, updated_at } = row;
 
-      const minutesPassed =
-        (new Date() - new Date(updated_at)) / (1000 * 60);
+      const hoursPassed =
+        (new Date() - new Date(updated_at)) / (1000 * 60 * 60);
 
       let level = null;
       let title = "";
       let message = "";
 
       // 🧠 LEVEL LOGIC
-     if (minutesPassed >= 6) {
-            level = "critical";
-            title = "🔴 Critical: Bugs Not Fixed!";
-            message = `You still have ${bug_count} bugs in "${file_name}". Immediate action required 🚨`;
-            } 
-            else if (minutesPassed >= 4) {
-            level = "warning";
-            title = "🟡 Warning: Bugs Pending";
-            message = `Your code still has ${bug_count} bugs. Please fix them soon ⚠️`;
-            } 
-            else if (minutesPassed >= 2) {
-            level = "reminder";
-            title = "🟢 Reminder: Fix Your Bugs";
-            message = `You have ${bug_count} bugs pending in "${file_name}". Improve your score 🚀`;
-            }
+      if (hoursPassed >= 6) {
+        level = "critical";
+        title = "🔴 Critical: Bugs Not Fixed!";
+        message = `You still have ${bug_count} bugs in "${file_name}". Immediate action required 🚨`;
+      } 
+      else if (hoursPassed >= 4) {
+        level = "warning";
+        title = "🟡 Warning: Bugs Pending";
+        message = `Your code still has ${bug_count} bugs. Please fix them soon ⚠️`;
+      } 
+      else if (hoursPassed >= 2) {
+        level = "reminder";
+        title = "🟢 Reminder: Fix Your Bugs";
+        message = `You have ${bug_count} bugs pending in "${file_name}". Improve your score 🚀`;
+      }
 
       if (!level) continue;
 
-      // 🚫 Avoid duplicate notifications
+      // 🚫 Avoid duplicate SAME DAY
       const alreadySent = await pool.query(`
         SELECT 1 FROM notifications
         WHERE user_id = $1
         AND code_submission_id = $2
         AND type = $3
+        AND DATE(created_at) = CURRENT_DATE
       `, [user_id, id, level]);
 
       if (alreadySent.rows.length > 0) continue;
 
-      // 🔔 Insert notification
+      // 🔔 Save to DB
       await pool.query(`
         INSERT INTO notifications 
         (admin_id, user_id, title, message, type, code_submission_id, is_read)
@@ -64,6 +65,16 @@ exports.runSmartReminder = async () => {
         level,
         id
       ]);
+
+      // ⚡ REAL-TIME SOCKET PUSH
+      if (global.io) {
+        global.io.to(user_id.toString()).emit("new_notification", {
+          title,
+          message,
+          type: level,
+          code_submission_id: id
+        });
+      }
 
       console.log(`🔔 ${level} reminder sent for submission ${id}`);
     }

@@ -118,15 +118,32 @@ function Layout({ children, navigate }) {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    socket.on("newNotification", fetchNotifications);
-    socket.on("newMessage", fetchUnread);
+useEffect(() => {
+  const userId = localStorage.getItem("userId"); // or from auth
 
-    return () => {
-      socket.off("newNotification");
-      socket.off("newMessage");
-    };
-  }, []);
+  if (userId) {
+    socket.emit("join", userId);
+  }
+
+  // 🔔 REAL-TIME NOTIFICATION
+  socket.on("new_notification", (data) => {
+    console.log("🔔 Live Notification:", data);
+
+    // refresh count
+    fetchNotifications();
+
+    // OPTIONAL: popup
+    alert(`${data.title}\n${data.message}`);
+  });
+
+  // 💬 CHAT (already working)
+  socket.on("newMessage", fetchUnread);
+
+  return () => {
+    socket.off("new_notification");
+    socket.off("newMessage");
+  };
+}, []);
 
   const layoutStyle = {
     minHeight: "100vh",

@@ -36,6 +36,8 @@ function CodeCompare() {
   const [versions, setVersions] = useState([]);
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [selectedFileVersions, setSelectedFileVersions] = useState(null);
+  const [leftProgress, setLeftProgress] = useState(0);
+  const [rightProgress, setRightProgress] = useState(0);
 
   // ✅ USE THEME FROM CONTEXT
   const { themeColors, theme } = useTheme();
@@ -685,24 +687,97 @@ function CodeCompare() {
 
                   {/* Monaco Editors */}
                   <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, position: "relative" }}>
+
+                      {/* LEFT PROGRESS BAR */}
+                      {leftProgress > 0 && (
+                        <div style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          height: "4px",
+                          background: "transparent",
+                          zIndex: 10
+                        }}>
+                          <div style={{
+                            height: "100%",
+                            width: `${leftProgress}%`,
+                            background: `linear-gradient(90deg, ${themeColors.accent}, #00f2fe)`,
+                            transition: "width 0.1s linear",
+                            boxShadow: `0 0 6px ${themeColors.accent}`
+                          }} />
+                        </div>
+                      )}
                       <Editor 
                         height="500px" 
                         theme={theme === 'dark' ? "vs-dark" : "light"} 
                         language={getLanguage(fileName1)} 
                         value={code1} 
-                        onMount={(editor) => setLeftEditor(editor)} 
+                        onMount={(editor) => {
+                            setLeftEditor(editor);
+
+                            editor.onDidScrollChange(() => {
+                              const scrollTop = editor.getScrollTop();
+                              const scrollHeight = editor.getScrollHeight();
+                              const height = editor.getLayoutInfo().height;
+
+                              if (scrollHeight <= height) {
+                                setLeftProgress(0);
+                                return;
+                              }
+
+                              const progress = (scrollTop / (scrollHeight - height)) * 100;
+                              setLeftProgress(progress);
+                            });
+                          }}
                         onChange={(value) => setCode1(value || "")} 
                         options={{ fontSize: 13, fontFamily: "'Fira Code', monospace" }}
                       />
                     </div>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, position: "relative" }}>
+
+                      {/* RIGHT PROGRESS BAR */}
+                      {rightProgress > 0 && (
+                        <div style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          height: "4px",
+                          zIndex: 10
+                        }}>
+                          <div style={{
+                            height: "100%",
+                            width: `${rightProgress}%`,
+                            background: `linear-gradient(90deg, ${themeColors.accent}, #00f2fe)`,
+                            transition: "width 0.1s linear",
+                            boxShadow: `0 0 6px ${themeColors.accent}`
+                          }} />
+                        </div>
+                      )}
                       <Editor 
                         height="500px" 
                         theme={theme === 'dark' ? "vs-dark" : "light"} 
                         language={getLanguage(fileName2)} 
                         value={code2} 
-                        onMount={(editor) => setRightEditor(editor)} 
+                        onMount={(editor) => {
+                          setRightEditor(editor);
+
+                          editor.onDidScrollChange(() => {
+                            const scrollTop = editor.getScrollTop();
+                            const scrollHeight = editor.getScrollHeight();
+                            const height = editor.getLayoutInfo().height;
+
+                            if (scrollHeight <= height) {
+                              setRightProgress(0);
+                              return;
+                            }
+
+                            const progress = (scrollTop / (scrollHeight - height)) * 100;
+                            setRightProgress(progress);
+                          });
+                        }}
                         onChange={(value) => setCode2(value || "")} 
                         options={{ fontSize: 13, fontFamily: "'Fira Code', monospace" }}
                       />

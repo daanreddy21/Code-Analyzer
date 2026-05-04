@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-const INACTIVITY_TIME = 30 * 1000; // 🔥 30 seconds (testing)
+const INACTIVITY_TIME = 60 * 30 * 1000; // 30 minutes
 const WARNING_TIME = 60; // 🔥 countdown
 
 export default function useInactivityTracker(onLogout) {

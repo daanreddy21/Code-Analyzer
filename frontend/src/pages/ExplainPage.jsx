@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useRef } from "react";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
@@ -22,6 +23,12 @@ function ExplainPage() {
   const [selectedCode, setSelectedCode] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [showProgressBar, setShowProgressBar] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
+
+  const codeRef = useRef(null);
+  const scrollTimeout = useRef(null);
 
   // ✅ USE THEME FROM CONTEXT
   const { themeColors, theme } = useTheme();
@@ -43,6 +50,45 @@ function ExplainPage() {
     }
   }, [location.state]);
 
+  useEffect(() => {
+    const el = codeRef.current;
+    if (!el) return;
+
+    el.addEventListener("scroll", handleScroll);
+
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [selectedCode]);
+
+  const handleScroll = () => {
+    const el = codeRef.current;
+    if (!el) return;
+
+    const scrollTop = el.scrollTop;
+    const scrollHeight = el.scrollHeight;
+    const clientHeight = el.clientHeight;
+
+    if (scrollHeight <= clientHeight + 5) {
+      setShowProgressBar(false);
+      return;
+    }
+
+    setShowProgressBar(scrollTop > 5);
+
+    if (scrollTop === 0) {
+      setScrollProgress(0);
+    }
+
+    const progress = (scrollTop / (scrollHeight - clientHeight)) * 100;
+    setScrollProgress(progress);
+
+    setIsScrolling(true);
+
+    clearTimeout(scrollTimeout.current);
+    scrollTimeout.current = setTimeout(() => {
+      setIsScrolling(false);
+    }, 800);
+  };
+
   const fetchCodes = async () => {
     try {
       const res = await axios.get("http://localhost:5000/api/explain/user-codes", {
@@ -56,6 +102,10 @@ function ExplainPage() {
 
   const handleExplain = async (item) => {
     setSelectedCode(item);
+
+    setScrollProgress(0);
+    setShowProgressBar(false);
+    setIsScrolling(false);
     setLoading(true);
     try {
       const res = await axios.post(
@@ -335,6 +385,10 @@ function ExplainPage() {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+      @keyframes progressShimmer {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 200% 50%; }
+      }
     .nav-btn {
       background: #334155;
       color: #e2e8f0;
@@ -376,7 +430,7 @@ function ExplainPage() {
         flex: 1, 
         display: "flex", 
         flexDirection: "column",
-        paddingTop: "80px"
+        paddingTop: "8px"
       }}>
         {!selectedCode ? (
           <div style={{ padding: "40px 2rem", maxWidth: "1200px", margin: "0 auto", width: "100%" }}>
@@ -550,25 +604,67 @@ function ExplainPage() {
               </div>
               
               {/* Code Display */}
-              <div style={{ 
-                flex: 1, 
-                overflow: "auto", 
-                padding: "20px", 
-                background: themeColors.background,
-                borderRadius: "12px",
-                border: `1px solid ${themeColors.border}`,
-                marginBottom: "20px"
-              }}>
-                <pre style={{ 
-                  margin: 0, 
-                  fontFamily: "'Fira Code', monospace", 
-                  fontSize: "13px", 
-                  lineHeight: "1.6",
-                  color: themeColors.textPrimary
-                }}>
-                  {selectedCode.code}
-                </pre>
-              </div>
+<div style={{ flex: 1, marginBottom: "20px" }}>
+
+  {/* ✅ SCROLLABLE CODE CONTAINER */}
+  <div
+    ref={codeRef}
+    style={{
+      maxHeight: "700px",
+      overflowY: "auto",
+      background: themeColors.background,
+      borderRadius: "12px",
+      border: `1px solid ${themeColors.border}`,
+      position: "relative"
+    }}
+  >
+
+    {/* ✅ PROGRESS BAR (NOW INSIDE SCROLL AREA) */}
+    {showProgressBar && (
+      <div style={{
+        position: "sticky",
+        top: 0,
+        height: "4px",
+        width: "100%",
+        zIndex: 50,
+        overflow: "hidden",
+        background: "transparent"
+      }}>
+        <div style={{
+          height: "100%",
+          width: `${scrollProgress}%`,
+          background: `linear-gradient(
+            90deg,
+            ${themeColors.accent},
+            #00f2fe,
+            ${themeColors.accent}
+          )`,
+          backgroundSize: "200% 100%",
+          animation: "progressShimmer 2s linear infinite",
+          transition: "width 0.1s linear",
+          boxShadow: `0 0 8px ${themeColors.accent}`,
+          opacity: isScrolling ? 1 : 0.6,
+          borderRadius: "0 4px 4px 0"
+        }} />
+      </div>
+    )}
+
+    {/* ✅ CODE CONTENT */}
+    <div style={{ padding: "20px" }}>
+      <pre style={{
+        margin: 0,
+        fontFamily: "'Fira Code', monospace",
+        fontSize: "13px",
+        lineHeight: "1.6",
+        color: themeColors.textPrimary
+      }}>
+        {selectedCode.code}
+      </pre>
+    </div>
+
+  </div>
+
+</div>
                
               {/* Optimization Suggestions */}
               {result && (

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 import { io } from "socket.io-client";
@@ -26,6 +26,13 @@ function AdminDashboard() {
 
   const user = JSON.parse(localStorage.getItem("user"));
 
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [showProgressBar, setShowProgressBar] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
+
+  const codeViewerRef = useRef(null);
+  const scrollTimeout = useRef(null);
+
   const onEmojiClick = (emojiData) => {
     setNewComment((prev) => prev + emojiData.emoji);
     setShowEmoji(false);
@@ -47,6 +54,43 @@ function AdminDashboard() {
       navigate("/dashboard");
     }
   }, [user, navigate]);
+
+useEffect(() => {
+  const el = codeViewerRef.current;
+  if (!el) return;
+
+  const handler = () => handleScroll();
+
+  el.addEventListener("scroll", handler);
+
+  return () => el.removeEventListener("scroll", handler);
+}, [selectedCode]);
+
+  const handleScroll = () => {
+  const el = codeViewerRef.current;
+  if (!el) return;
+
+  const scrollTop = el.scrollTop;
+  const scrollHeight = el.scrollHeight;
+  const clientHeight = el.clientHeight;
+
+    if (scrollHeight <= clientHeight + 5) {
+      setShowProgressBar(false);
+      return;
+    }
+
+  setShowProgressBar(true);
+
+  const progress = (scrollTop / (scrollHeight - clientHeight)) * 100;
+  setScrollProgress(progress);
+
+  setIsScrolling(true);
+
+  clearTimeout(scrollTimeout.current);
+  scrollTimeout.current = setTimeout(() => {
+    setIsScrolling(false);
+  }, 1000);
+};
 
 const fetchSubmissions = async (status) => {
   try {
@@ -78,6 +122,11 @@ const fetchSubmissions = async (status) => {
       socket.emit("join_submission", id);
 
       setSelectedCode({ ...res.data, id });
+
+      // ✅ ADD THIS
+      setScrollProgress(0);
+      setShowProgressBar(false);
+      setIsScrolling(false);
 
       const commentRes = await API.get(`/comments/${id}`);
       setComments(commentRes.data);
@@ -148,11 +197,17 @@ const fetchSubmissions = async (status) => {
     return fileName.includes(search);
   });
 
-  const sortedSubmissions = [...filteredSubmissions].sort((a, b) => {
-    if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at);
-    if (sortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
-    return 0;
-  });
+const sortedSubmissions = [...filteredSubmissions].sort((a, b) => {
+  // ⭐ STEP 1: PINNED FIRST
+  if (a.is_bookmarked && !b.is_bookmarked) return -1;
+  if (!a.is_bookmarked && b.is_bookmarked) return 1;
+
+  // ⭐ STEP 2: NORMAL SORT
+  if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at);
+  if (sortBy === 'oldest') return new Date(a.created_at) - new Date(b.created_at);
+
+  return 0;
+});
 
   
   // Pagination
@@ -585,22 +640,58 @@ const fetchSubmissions = async (status) => {
             </div>
 
             {/* Code Content */}
-            <div style={{
-              background: themeColors.bgInner,
-              borderRadius: "12px",
-              padding: "20px",
-              marginBottom: "20px",
-              overflow: "auto",
-              maxHeight: "400px",
-            }}>
-              <pre style={{
-                margin: 0,
-                fontSize: "14px",
-                lineHeight: "1.5",
-                color: themeColors.textPrimary,
-              }}>
-                {selectedCode.code}
-              </pre>
+            <div style={{ position: "relative", marginBottom: "20px" }}>
+
+              {/* ✅ PROGRESS BAR */}
+              {showProgressBar && (
+                <div style={{
+                  position: "sticky",
+                  top: 0,
+                  height: "5px",
+                  width: "100%",
+                  zIndex: 20,
+                  overflow: "hidden"
+                }}>
+                  <div style={{
+                    height: "100%",
+                    width: `${scrollProgress}%`,
+                    background: `linear-gradient(
+                      90deg,
+                      ${themeColors.accent},
+                      #00f2fe,
+                      ${themeColors.accent}
+                    )`,
+                    backgroundSize: "200% 100%",
+                    animation: isScrolling ? "progressShimmer 2s linear infinite" : "none",
+                    transition: "width 0.15s ease-out",
+                    boxShadow: `0 0 8px ${themeColors.accent}`,
+                    borderRadius: "0 4px 4px 0",
+                    opacity: isScrolling ? 1 : 0.5
+                  }} />
+                </div>
+              )}
+
+              {/* ✅ SCROLLABLE CODE */}
+              <div
+                ref={codeViewerRef}
+                style={{
+                  background: themeColors.bgInner,
+                  borderRadius: "12px",
+                  padding: "20px",
+                  maxHeight: "400px",
+                  overflowY: "auto"
+                }}
+              >
+                <pre style={{
+                  margin: 0,
+                  fontSize: "14px",
+                  lineHeight: "1.5",
+                  color: themeColors.textPrimary,
+                }}>
+                  {selectedCode.code}
+                </pre>
+              </div>
+
             </div>
 
             {/* Comments Section */}
@@ -694,6 +785,10 @@ const fetchSubmissions = async (status) => {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
+          @keyframes progressShimmer {
+              0% { background-position: 0% 50%; }
+              100% { background-position: 200% 50%; }
+            }
       `}</style>
     </div>
   );

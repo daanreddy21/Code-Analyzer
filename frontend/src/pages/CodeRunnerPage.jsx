@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 import Editor from "@monaco-editor/react";
@@ -33,6 +34,8 @@ function CodeRunnerPage() {
   const [title, setTitle] = useState("");
   const [prediction, setPrediction] = useState("");
   const [predictLoading, setPredictLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const editorRef = useRef(null);
 
   // ✅ USE THEME FROM CONTEXT
   const { themeColors, theme } = useTheme();
@@ -395,6 +398,10 @@ int main() {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
+    @keyframes progressShimmer {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 200% 50%; }
+    }
     .test-case-item:hover {
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
@@ -423,7 +430,7 @@ int main() {
       <style>{animationStyles}</style>
       
       <main style={{ 
-        paddingTop: "80px", 
+        paddingTop: "8px", 
         paddingBottom: "60px",
         position: 'relative',
         zIndex: 1,
@@ -533,24 +540,69 @@ int main() {
             </div>
 
             {/* Monaco Editor */}
-            <div style={{ padding: '20px', flex: 1 }}>
-              <Editor
-                height="500px"
-                language={getEditorLanguage()}
-                value={code}
-                theme={theme === 'dark' ? "vs-dark" : "light"}
-                onChange={setCode}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  scrollBeyondLastLine: false,
-                  wordWrap: "on",
-                  automaticLayout: true,
-                  fontFamily: "'Fira Code', monospace",
-                  lineNumbers: "on",
-                  renderWhitespace: "selection"
-                }}
-              />
+            <div style={{ padding: '20px', flex: 1, position: "relative" }}>
+
+            {/* ✅ PROGRESS BAR */}
+            {progress > 0 && (
+              <div style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "4px",
+                zIndex: 10,
+                overflow: "hidden"
+              }}>
+                <div style={{
+                  height: "100%",
+                  width: `${progress}%`,
+                  background: `linear-gradient(
+                    90deg,
+                    ${themeColors.accent},
+                    #00f2fe,
+                    ${themeColors.accent}
+                  )`,
+                  backgroundSize: "200% 100%",
+                  animation: "progressShimmer 2s linear infinite",
+                  transition: "width 0.1s linear",
+                  boxShadow: `0 0 8px ${themeColors.accent}`
+                }} />
+              </div>
+            )}
+            <Editor
+              height="500px"
+              language={getEditorLanguage()}
+              value={code}
+              theme={theme === 'dark' ? "vs-dark" : "light"}
+              onChange={setCode}
+              onMount={(editor) => {
+                editorRef.current = editor;
+
+                editor.onDidScrollChange(() => {
+                  const scrollTop = editor.getScrollTop();
+                  const scrollHeight = editor.getScrollHeight();
+                  const height = editor.getLayoutInfo().height;
+
+                  if (scrollHeight <= height) {
+                    setProgress(0);
+                    return;
+                  }
+
+                  const p = (scrollTop / (scrollHeight - height)) * 100;
+                  setProgress(p);
+                });
+              }}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                scrollBeyondLastLine: false,
+                wordWrap: "on",
+                automaticLayout: true,
+                fontFamily: "'Fira Code', monospace",
+                lineNumbers: "on",
+                renderWhitespace: "selection"
+              }}
+            />
             </div>
 
             {/* Action Buttons */}
