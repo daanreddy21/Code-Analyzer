@@ -20,7 +20,7 @@ exports.getSubmissions = async (req, res) => {
 
     const values = [];
 
-    // ⭐ 1. BOOKMARK FILTER (priority)
+
 const conditions = [];
 
 if (bookmarked === "true") {

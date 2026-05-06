@@ -26,7 +26,7 @@ function AdvancedInfoPopup({ data, onClose }) {
   // ✅ USE THEME FROM CONTEXT
   const { themeColors, theme } = useTheme();
 
-  if (!data) return null;
+  if (!data || !data.title) return null;
 
   // Dynamic styles using themeColors
   const overlay = {

@@ -40,13 +40,13 @@ function Layout({ children, navigate }) {
     const { showPopup, countdown, resetTimer } = useInactivityTracker(handleLogout);
 
 
-  // ✅ GLOBAL CUSTOM INFO FUNCTION
+
   const showCustomInfo = (info) => {
     setCustomInfo(info);
     setShowInfo(true);
   };
 
-  // ✅ FORCE RE-RENDER ON THEME CHANGE
+
   const handleToggleTheme = () => {
     toggleTheme();
     setRenderKey(prev => prev + 1);
@@ -76,7 +76,7 @@ function Layout({ children, navigate }) {
     }
   };
 
-  // 💬 FETCH CHAT
+
   const fetchUnread = async () => {
     if (isFetchingChat.current) return;
     if (document.visibilityState !== "visible") return;
@@ -95,16 +95,19 @@ function Layout({ children, navigate }) {
     }
   };
 
-  // ✅ FIRST TIME PAGE VISIT POPUP
-  useEffect(() => {
-    const key = `visited_${location.pathname}`;
-    const visited = localStorage.getItem(key);
 
-    if (!visited) {
-      setShowInfo(true);
-      localStorage.setItem(key, "true");
-    }
-  }, [location.pathname]);
+useEffect(() => {
+  const segments = location.pathname.split("/").filter(Boolean);
+  const last = "/" + segments[segments.length - 1];
+
+  const key = `visited_${last}`;
+  const visited = localStorage.getItem(key);
+
+  if (!visited && pageFullInfo[last]) {
+    setShowInfo(true);
+    localStorage.setItem(key, "true");
+  }
+}, [location.pathname]);
 
   useEffect(() => {
     fetchNotifications();
@@ -125,14 +128,13 @@ useEffect(() => {
     socket.emit("join", userId);
   }
 
-  // 🔔 REAL-TIME NOTIFICATION
+
   socket.on("new_notification", (data) => {
     console.log("🔔 Live Notification:", data);
 
-    // refresh count
     fetchNotifications();
 
-    // OPTIONAL: popup
+
     alert(`${data.title}\n${data.message}`);
   });
 
@@ -150,6 +152,11 @@ useEffect(() => {
     background: themeColors.background,
     color: themeColors.textPrimary
   };
+
+  const segments = location.pathname.split("/").filter(Boolean);
+const last = "/" + segments[segments.length - 1];
+
+const pageData = pageFullInfo[last];
 
   return (
     <div className="app-layout" style={layoutStyle}>
@@ -199,24 +206,16 @@ useEffect(() => {
       {/* 🔥 GLOBAL INFO POPUP */}
       {(showInfo || customInfo) && (
         <AdvancedInfoPopup
-          data={
-            customInfo ||
-            pageFullInfo[location.pathname] || {
-              title: "Page Info",
-              description: "No information available",
-              sections: [],
-              popups: []
-            }
-          }
-          onClose={() => {
-            setShowInfo(false);
-            setCustomInfo(null);
-          }}
-        />
+  data={customInfo || pageData}
+  onClose={() => {
+    setShowInfo(false);
+    setCustomInfo(null);
+  }}
+/>
       )}
 
-      {/* ℹ️ FLOATING INFO BUTTON */}
-      <div
+      
+      {/* <div
         onClick={() => setShowInfo(true)}
         onMouseEnter={() => setShowInfo(true)}
         style={{
@@ -237,7 +236,7 @@ useEffect(() => {
         }}
       >
         ℹ️
-      </div>
+      </div> */}
       {showPopup && (
         <InactivityPopup 
           countdown={countdown} 

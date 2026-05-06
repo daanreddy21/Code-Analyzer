@@ -11,10 +11,10 @@ const {
 
 const authenticateToken = require("../middleware/authMiddleware");
 
-// ✅ These are correct
+
 router.post("/submit", authenticateToken, upload, submitProject);
 router.get("/my-submissions", authenticateToken, getMySubmissions);
 router.get("/download/:id", authenticateToken, downloadProjectFile);
-router.delete("/:id", authenticateToken, deleteProject);   // 👈 THIS IS IMPORTANT
+router.delete("/:id", authenticateToken, deleteProject);   
 
 module.exports = router;

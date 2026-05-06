@@ -9,6 +9,16 @@ import MessagePopup from "../components/MessagePopup";
 import socket from "../services/socket";
 import RewardCard from "../components/RewardCard";
 import { useTheme } from "../context/ThemeContext";
+import { useLocation } from "react-router-dom";
+
+import History from "./History";
+import Analyzer from "./Analyzer";
+import CodeCompare from "./CodeCompare";
+import Profile from "./Profile";
+import ChatPage from "./ChatPage";
+import FileList from "./FileList";
+import ExplainPage from "./ExplainPage";
+import CodeRunnerPage from "./CodeRunnerPage";
 import {
   LineChart,
   Line,
@@ -44,8 +54,39 @@ function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   
-  // ✅ USE THEME FROM CONTEXT
   const { themeColors, theme } = useTheme();
+
+  const location = useLocation();
+
+// split path
+const segments = location.pathname.split("/").filter(Boolean);
+
+// get LAST route
+const last = segments[segments.length - 1];
+
+const renderPage = () => {
+  switch (last) {
+    case "history":
+      return <History />;
+    case "analyzer":
+      return <Analyzer />;
+    case "compare":
+      return <CodeCompare />;
+    case "profile":
+      return <Profile />;
+    case "chat":
+    case "user":
+      return <ChatPage />;
+    case "files":
+      return <FileList />;
+    case "explain":
+      return <ExplainPage />;
+    case "code-runner":
+      return <CodeRunnerPage />;
+    default:
+      return null;
+  }
+};
 
 
 
@@ -246,7 +287,8 @@ useEffect(() => {
 
       {/* MAIN CONTENT */}
       <main className="dashboard-main" style={{  position: 'relative', zIndex: 1, maxWidth: '1400px', margin: '0 auto', paddingLeft: '24px', paddingRight: '24px' }}>
-        
+    {last === "dashboard" && (
+      <>
         {/* Welcome Section */}
         <div className="welcome-section" style={{ marginBottom: '4px', textAlign: 'center',paddingBottom: '20px' }}>
           <h1 style={{ fontSize: '3rem', fontWeight: '800', background: `linear-gradient(135deg, ${theme === 'dark' ? '#fff' : themeColors.textPrimary} 0%, ${themeColors.accent} 100%)`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '12px' }}>Welcome back, Developer</h1>
@@ -602,6 +644,11 @@ useEffect(() => {
           )}
         </div>
         <br />
+      </>
+    )}
+
+    {last !== "dashboard" && renderPage()}
+
       </main>
 
       <ProjectSubmissionModal isOpen={showProjectModal} onClose={() => setShowProjectModal(false)} onSuccess={fetchDashboardData} />

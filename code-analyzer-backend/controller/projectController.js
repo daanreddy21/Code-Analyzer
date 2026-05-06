@@ -1,11 +1,11 @@
-// projectController.js
+
 const multer = require("multer");
 const pool = require("../config/db");
 const fs = require("fs");
 const path = require("path");
 const AdmZip = require("adm-zip");
 
-// ✅ Multer middleware
+
 const upload = multer({
   storage: multer.diskStorage({
     destination: "uploads/projects/",
@@ -16,7 +16,7 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
 }).single("projectFile");
 
-// 📂 Get all files recursively
+
 function getAllFiles(dirPath, arrayOfFiles = []) {
   const files = fs.readdirSync(dirPath);
   files.forEach((file) => {
@@ -30,7 +30,7 @@ function getAllFiles(dirPath, arrayOfFiles = []) {
   return arrayOfFiles;
 }
 
-// 🧠 Detect project type
+
 function detectProjectType(files) {
   let hasFrontend = false;
   let hasBackend = false;
@@ -38,7 +38,7 @@ function detectProjectType(files) {
   files.forEach((f) => {
     const lower = f.toLowerCase();
 
-    // Frontend patterns (unchanged)
+    
     if (
       lower.endsWith(".html") ||
       lower.endsWith(".css") ||
@@ -51,7 +51,7 @@ function detectProjectType(files) {
       hasFrontend = true;
     }
 
-    // Stricter backend patterns (removed .js and .ts to avoid false positives)
+  
     if (
       lower.endsWith(".py") ||
       lower.endsWith(".php") ||
@@ -72,13 +72,11 @@ function detectProjectType(files) {
   return "UNKNOWN";
 }
 
-// ================================================
-// 🟢 A. CODE QUALITY ISSUES
-// ================================================
+
 function checkCodeQuality(content, filePath) {
   const issues = [];
 
-  // Unused variable (simple heuristic)
+
   if (/let\s+[a-zA-Z_$][a-zA-Z0-9_$]*\s*;/.test(content) && !content.includes("console.log")) {
     issues.push({
       category: "code_quality",
@@ -90,7 +88,7 @@ function checkCodeQuality(content, filePath) {
     });
   }
 
-  // Long function (very long function body)
+
   const lines = content.split("\n");
   if (lines.length > 150) {
     issues.push({
@@ -103,7 +101,7 @@ function checkCodeQuality(content, filePath) {
     });
   }
 
-  // Bad naming (single‑letter variables)
+
   if (/\b[a-zA-Z]\b\s*=\s*/.test(content)) {
     issues.push({
       category: "code_quality",
@@ -118,13 +116,11 @@ function checkCodeQuality(content, filePath) {
   return issues;
 }
 
-// ================================================
-// ⚡ B. PERFORMANCE ISSUES
-// ================================================
+
 function checkPerformance(content, filePath, projectType) {
   const issues = [];
 
-  // useEffect without deps (React)
+
   if (content.includes("useEffect")) {
     if (!content.includes("],") && !content.includes("useEffect([],")) {
       issues.push({
@@ -138,7 +134,7 @@ function checkPerformance(content, filePath, projectType) {
     }
   }
 
-  // Large image files (heuristic from file path)
+
   const lower = filePath.toLowerCase();
   if (
     (lower.endsWith(".jpg") || lower.endsWith(".png") || lower.endsWith(".jpeg")) &&
@@ -162,13 +158,9 @@ function checkPerformance(content, filePath, projectType) {
   return issues;
 }
 
-// ================================================
-// 🔐 C. SECURITY ISSUES
-// ================================================
 function checkSecurity(content, filePath, allFiles) {
   const issues = [];
 
-  // Raw SQL string (potential SQL injection)
   if (
     (content.includes("SELECT") || content.includes("INSERT") || content.includes("UPDATE")) &&
     content.includes("+")
@@ -183,7 +175,7 @@ function checkSecurity(content, filePath, allFiles) {
     });
   }
 
-  // Hardcoded secrets (very naive but illustrative)
+
   if (content.includes("password") || content.includes("secret") || content.includes("API_KEY")) {
     if (!content.includes(".env")) {
       issues.push({
@@ -197,7 +189,7 @@ function checkSecurity(content, filePath, allFiles) {
     }
   }
 
-  // No auth‑like keywords
+
   const authPatterns = allFiles.some((f) =>
     f.toLowerCase().includes("auth") || f.toLowerCase().includes("login")
   );
@@ -215,14 +207,12 @@ function checkSecurity(content, filePath, allFiles) {
   return issues;
 }
 
-// ================================================
-// 🎨 D. UI/UX ISSUES (Frontend code)
-// ================================================
+
 function checkUIUX(content, filePath, projectType) {
   const issues = [];
 
   if (projectType === "FRONTEND" || filePath.toLowerCase().endsWith(".html")) {
-    // No viewport or basic responsive hints
+
     if (
       content.includes("<html") &&
       !content.includes("viewport") &&
@@ -239,7 +229,7 @@ function checkUIUX(content, filePath, projectType) {
       });
     }
 
-    // Missing alt / labels
+
     if (content.includes("<img") && !content.includes("alt=")) {
       issues.push({
         category: "ui_ux",
@@ -255,13 +245,11 @@ function checkUIUX(content, filePath, projectType) {
   return issues;
 }
 
-// ================================================
-// 🔗 E. API INTEGRATION ISSUES
-// ================================================
+
 function checkAPIIntegration(content, filePath, projectType, allFiles) {
   const issues = [];
 
-  // Fetch without good URL structure
+  
   if (content.includes("fetch(") && projectType !== "BACKEND") {
     if (!content.includes("/api/") && !content.includes("http")) {
       issues.push({
@@ -275,7 +263,7 @@ function checkAPIIntegration(content, filePath, projectType, allFiles) {
     }
   }
 
-  // Mixed data format (just a hint)
+
   if (
     content.includes("response.json()") &&
     !content.includes("data.")
@@ -293,13 +281,11 @@ function checkAPIIntegration(content, filePath, projectType, allFiles) {
   return issues;
 }
 
-// ================================================
-// ⚠️ F. ERROR HANDLING ISSUES
-// ================================================
+
 function checkErrorHandling(content, filePath) {
   const issues = [];
 
-  // async code without try‑catch
+  
   if (content.includes("await") && !content.includes("try")) {
     issues.push({
       category: "error_handling",
@@ -311,9 +297,9 @@ function checkErrorHandling(content, filePath) {
     });
   }
 
-  // No explicit error handling (no catch / .catch)
+  
   if (content.includes("catch") || content.includes(".catch")) {
-    // No issue
+    
   } else if (content.includes("fetch(") || content.includes("axios")) {
     issues.push({
       category: "error_handling",
@@ -328,13 +314,11 @@ function checkErrorHandling(content, filePath) {
   return issues;
 }
 
-// ================================================
-// 🏗️ G. ARCHITECTURE ISSUES
-// ================================================
+
 function checkArchitecture(allFiles, projectType, projectDir) {
   const issues = [];
 
-  // Check if basic structure is missing
+  
   const hasSrc = allFiles.some((f) => f.includes("src"));
   const hasControllers = allFiles.some((f) => f.toLowerCase().includes("controller"));
   const hasRoutes = allFiles.some((f) => f.toLowerCase().includes("route"));
@@ -374,7 +358,7 @@ function checkArchitecture(allFiles, projectType, projectDir) {
     });
   }
 
-  // Mixing frontend and backend logic
+
   const hasNodeFiles = allFiles.some((f) => f.endsWith("server.js") || f.endsWith("app.js"));
   const hasFrontendDir = allFiles.some((f) => f.includes("public") || f.includes("dist"));
 
@@ -394,7 +378,7 @@ function checkArchitecture(allFiles, projectType, projectDir) {
   return issues;
 }
 
-// 📊 Score calculator
+
 function calculateScore(issues) {
   let score = 100;
   issues.forEach((issue) => {
@@ -405,7 +389,7 @@ function calculateScore(issues) {
   return score < 0 ? 0 : score;
 }
 
-// 📂 Group by category
+
 function categorizeIssues(issues) {
   const grouped = {
     code_quality: [],
@@ -426,14 +410,14 @@ function categorizeIssues(issues) {
   return grouped;
 }
 
-// 💡 Generate unique readable suggestions
+
 function generateSuggestions(issues) {
   const suggestionsSet = new Set();
   issues.forEach((issue) => suggestionsSet.add(issue.suggestion));
   return Array.from(suggestionsSet);
 }
 
-// 📊 Summary
+
 function generateSummary(issues) {
   const summary = { total: issues.length, high: 0, medium: 0, low: 0 };
   issues.forEach((issue) => {
@@ -444,7 +428,7 @@ function generateSummary(issues) {
   return summary;
 }
 
-// ✅ Main submit handler
+
 exports.submitProject = async (req, res) => {
   const { title, domain, database_type, tech_stack, description, course_name } = req.body;
   const user_id = req.userId;
@@ -465,23 +449,17 @@ exports.submitProject = async (req, res) => {
   const filePath = req.file.path;
   const fileData = fs.readFileSync(filePath);
 
-  // ==============================
-  // STEP 1: EXTRACT ZIP
-  // ==============================
+
   const zip = new AdmZip(filePath);
   const extractPath = path.join("uploads/projects_extracted", Date.now().toString());
   fs.mkdirSync(extractPath, { recursive: true });
   zip.extractAllTo(extractPath, true);
   const allFiles = getAllFiles(extractPath);
 
-  // ==============================
-  // STEP 2: DETECT PROJECT TYPE
-  // ==============================
+
   const projectType = detectProjectType(allFiles);
 
-  // ==============================
-  // STEP 3: SCAN & ANALYZE FILES
-  // ==============================
+
   let allIssues = [];
 
   allFiles.forEach((filePath) => {
@@ -491,7 +469,7 @@ exports.submitProject = async (req, res) => {
     try {
       const content = fs.readFileSync(filePath, "utf-8");
 
-      // Only run analyzers on text files
+
       if ([".js", ".jsx", ".ts", ".tsx", ".html", ".py", ".php", ".java"].some((e) => ext === e)) {
         allIssues.push(...checkCodeQuality(content, filePath));
         allIssues.push(...checkPerformance(content, filePath, projectType));
@@ -503,22 +481,16 @@ exports.submitProject = async (req, res) => {
     } catch {}
   });
 
-  // ==============================
-  // STEP 4: PROJECT‑LEVEL ANALYSIS (Architecture)
-  // ==============================
+
   allIssues.push(...checkArchitecture(allFiles, projectType, extractPath));
 
-  // ==============================
-  // STEP 5: SCORE + CATEGORIZE + SUGGESTIONS
-  // ==============================
+
   const score = calculateScore(allIssues);
   const categories = categorizeIssues(allIssues);
   const suggestions = generateSuggestions(allIssues);
   const summary = generateSummary(allIssues);
 
-  // ==============================
-  // STEP 6: STORE IN DB
-  // ==============================
+
   await pool.query(
     `INSERT INTO project_submissions(
       user_id, title, domain, database_type, tech_stack, description, 
@@ -540,9 +512,7 @@ exports.submitProject = async (req, res) => {
     ]
   );
 
-  // ==============================
-  // STEP 7: RETURN CLEAN OUTPUT
-  // ==============================
+
   return res.json({
     message: "Project analyzed successfully",
     title,
@@ -559,8 +529,7 @@ exports.submitProject = async (req, res) => {
 };
    
 
-// ✅ Get user submissions
-// Update this in your projectController.js
+
 exports.getMySubmissions = async (req, res) => {
   try {
     const user_id = req.userId;
@@ -580,17 +549,13 @@ exports.getMySubmissions = async (req, res) => {
 };
 
 
-// ✅ Delete project (still a plain async function)
 
-
-
-// ✅ Download project file (still a plain async function)
 exports.downloadProjectFile = async (req, res) => {
   try {
     const user_id = req.userId;
     const { id } = req.params;
 
-    // Verify ownership and pull binary data
+   
     const result = await pool.query(
       "SELECT file_data, title, file_path FROM project_submissions WHERE id=$1 AND user_id=$2",
       [id, user_id]

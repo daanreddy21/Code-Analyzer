@@ -45,8 +45,7 @@ exports.runCode = async (req, res) => {
         } else {
           status = "Wrong Answer";
 
-          // 🔥 AI CALL HERE
-        try {
+       try {
           const aiRes = await axios.post(
             "http://localhost:5000/api/explain/failure-explanation",
             {
@@ -80,7 +79,7 @@ exports.runCode = async (req, res) => {
         output: result.output || "",
         status,
         executionTime: result.executionTime || "N/A",
-        explanation   // 🔥 ADD THIS
+        explanation   
       });
     }
 

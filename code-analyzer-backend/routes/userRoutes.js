@@ -5,7 +5,7 @@ const authMiddleware = require("../middleware/authMiddleware");
 const multer = require('multer'); // For profile images
 
 
-// 🔹 Profile routes
+//  Upload profile image
 router.get("/profile", authMiddleware, userController.getProfile);
 router.put("/profile", authMiddleware, userController.upload.single('profile_image'), userController.updateProfile);
 

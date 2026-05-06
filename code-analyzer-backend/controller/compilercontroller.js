@@ -1,6 +1,5 @@
 const pool = require("../config/db");
 
-// ✅ Save Code
 exports.saveCode = async (req, res) => {
   const { title, language, code } = req.body;
   const userId = req.user.id;
@@ -18,10 +17,9 @@ exports.saveCode = async (req, res) => {
   }
 };
 
-// ✅ Get User Codes
 
 exports.getCodes = async (req, res) => {
-  // ✅ ADD THIS GUARD
+ 
   if (!req.user || !req.user.id) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -54,7 +52,6 @@ exports.updateCodeC = async (req, res) => {
   try {
     let result;
 
-    // ✅ AUTO-SAVE (only code)
     if (title === undefined && language === undefined) {
       result = await pool.query(
         `UPDATE saved_codes 
@@ -64,7 +61,7 @@ exports.updateCodeC = async (req, res) => {
         [code, id, userId]
       );
     } 
-    // ✅ FULL UPDATE
+
     else {
       result = await pool.query(
         `UPDATE saved_codes 

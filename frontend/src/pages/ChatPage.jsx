@@ -22,12 +22,12 @@ function ChatPage() {
     accent: "#3b82f6"
   };
 
-  // ✅ JOIN SOCKET ONLY
+  
   useEffect(() => {
     socket.emit("join", userId);
   }, [userId]);
 
-  // ✅ FETCH USERS
+ 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -40,7 +40,7 @@ function ChatPage() {
     fetchUsers();
   }, []);
 
-  // ✅ OPEN CHAT
+  
   const openChat = async (user) => {
     try {
       setMessages([]); // 🔥 clear old messages
@@ -54,7 +54,7 @@ function ChatPage() {
       setSelectedChat({
         ...user,
         conversation_id: conversationId,
-        id: user.id // ✅ important fix
+        id: user.id 
       });
 
       const msgRes = await API.get(`/chat/messages/${conversationId}`);

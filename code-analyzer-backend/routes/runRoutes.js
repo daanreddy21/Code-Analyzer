@@ -8,7 +8,7 @@ const compilerLimiter = rateLimit({
   max: 10
 });
 
-// ✅ USES YOUR DOCKER CONTROLLER (no more mock!)
+// USES YOUR DOCKER CONTROLLER (no more mock!)
 router.post('/', compilerLimiter, runCode);
 router.post('/run', compilerLimiter, runCode);
 

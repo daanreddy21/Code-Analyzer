@@ -1,7 +1,10 @@
  // src/components/Header.jsx
 import React, { useEffect } from "react";
 import { FaUserCircle, FaSignOutAlt, FaBell, FaSun, FaMoon } from "react-icons/fa";
-import { useTheme } from "../context/ThemeContext"; // ✅ NEW
+import { useTheme } from "../context/ThemeContext"; 
+
+import { useLocation } from "react-router-dom";
+
 
 function Header({
   navigate,
@@ -60,6 +63,24 @@ function Header({
     color: themeColors.textPrimary
   };
 
+  const location = useLocation();
+
+const goDeep = (path) => {
+  const cleanPath = path.replace(/^\/+/, "");
+
+  const segments = location.pathname.split("/").filter(Boolean);
+
+  // if already exists → CUT back to that level
+  if (segments.includes(cleanPath)) {
+    const index = segments.indexOf(cleanPath);
+    const newPath = "/" + segments.slice(0, index + 1).join("/");
+    navigate(newPath);
+  } else {
+    // otherwise → append
+    navigate(`${location.pathname}/${cleanPath}`);
+  }
+};
+
   return (
     <header style={headerStyle}>
       <div className="header-content" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: "1400px", margin: "0 auto" }}>
@@ -87,7 +108,7 @@ function Header({
             Home
           </button>
 
-          {/* Analyze Dropdown */}
+         
           <div style={{ position: "relative" }}>
             <button
               className="nav-btn"
@@ -103,16 +124,16 @@ function Header({
             {showDropdown && (
               <div style={dropdownStyle}>
                 {[
-                  { label: "🔍 Code Analyzer", path: "/analyzer" },
-                  { label: "⚖️ Compare Code", path: "/compare" },
-                  { label: "▶️ Code Runner", path: "/code-runner" },
-                  { label: "📄 Explain Files", path: "/explain" }
+                  { label: "🔍 Code Analyzer", path: "analyzer" },
+                  { label: "⚖️ Compare Code", path: "compare" },
+                  { label: "▶️ Code Runner", path: "code-runner" },
+                  { label: "📄 Explain Files", path: "explain" }
                 ].map((item, i) => (
                   <div
                     key={i}
                     onClick={() => {
                       setShowDropdown(false);
-                      navigate(item.path);
+                      goDeep(item.path);
                     }}
                     style={dropdownItemStyle}
                     onMouseEnter={(e) => e.currentTarget.style.background = themeColors.hoverBg}
@@ -125,7 +146,7 @@ function Header({
             )}
           </div>
 
-          <button className="nav-btn" onClick={() => navigate("/history")} style={buttonStyle(themeColors)}>
+          <button className="nav-btn" onClick={() => goDeep("history")} style={buttonStyle(themeColors)}>
             History
           </button>
 
@@ -151,13 +172,13 @@ function Header({
           </div>
 
           {/* Profile */}
-          <button className="nav-btn" onClick={() => navigate("/profile")} style={buttonStyle(themeColors)}>
+          <button className="nav-btn" onClick={() => goDeep("profile")} style={buttonStyle(themeColors)}>
             <FaUserCircle size={20} />
           </button>
 
           {/* Chat */}
           <div style={{ position: "relative" }}>
-            <button className="nav-btn" onClick={() => navigate("/chat")} style={buttonStyle(themeColors)}>
+            <button className="nav-btn" onClick={() => goDeep("chat")} style={buttonStyle(themeColors)}>
               💬
             </button>
             {unread > 0 && (

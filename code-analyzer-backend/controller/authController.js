@@ -22,7 +22,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// login route for user to login and get a token for authentication purposes
+
 const jwt = require("jsonwebtoken");
 
 exports.login = async (req, res) => {

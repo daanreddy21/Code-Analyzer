@@ -1,6 +1,6 @@
 const pool = require("../config/db");
 
-// ✅ CREATE OR GET CONVERSATION
+
 exports.getOrCreateConversation = async (req, res) => {
   const userId = req.userId;
   const { receiverId } = req.body;
@@ -31,7 +31,7 @@ exports.getOrCreateConversation = async (req, res) => {
   res.json({ conversationId: convoId });
 };
 
-// ✅ SEND MESSAGE
+
 exports.sendMessage = async (req, res) => {
   const { conversationId, message } = req.body;
   const senderId = req.userId;
@@ -45,7 +45,7 @@ exports.sendMessage = async (req, res) => {
   res.json(result.rows[0]);
 };
 
-// ✅ GET MESSAGES
+
 exports.getMessages = async (req, res) => {
   const { conversationId } = req.params;
 
@@ -60,7 +60,7 @@ exports.getMessages = async (req, res) => {
   res.json(result.rows);
 };
 
-// ✅ MARK AS READ
+
 exports.markAsRead = async (req, res) => {
   const { conversationId } = req.params;
   const userId = req.userId;
@@ -74,7 +74,7 @@ exports.markAsRead = async (req, res) => {
   res.json({ message: "Marked as read" });
 };
 
-// ✅ UNREAD COUNT (GLOBAL 🔴)
+
 exports.getUnreadCount = async (req, res) => {
   const userId = req.userId;
 
@@ -89,7 +89,7 @@ exports.getUnreadCount = async (req, res) => {
   res.json({ unread: parseInt(result.rows[0].count) });
 };
 
-// ✅ GET USER CHAT LIST (SIDEBAR)
+//  GET USER CHAT LIST (SIDEBAR)
 exports.getUserChats = async (req, res) => {
   const userId = req.userId;
 

@@ -1,4 +1,4 @@
-// server.js
+
 require('dotenv').config();
 
 const express = require("express");
@@ -8,11 +8,13 @@ const fs = require("fs");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const runRoutes = require("./routes/runRoutes");
+
+
 const http = require("http");
 const app = express();
 const server = http.createServer(app);
 
-// ROUTES
+
 const authRoutes = require("./routes/authRoutes");
 const codeRoutes = require("./routes/codeRoutes");
 const projectRoutes = require("./routes/projectSubmission");
@@ -30,7 +32,7 @@ const predictRoutes = require("./routes/predictRoutes");
 
 
 
-// ✅ Create directories
+
 const ensureDirectories = () => {
   const dirs = ['uploads', 'temp', 'uploads/profiles'];
   dirs.forEach(dir => {
@@ -43,7 +45,7 @@ const ensureDirectories = () => {
 };
 
 
-// 🔹 FIXED CORS
+
 app.use(cors({
   origin: function (origin, callback) {
     const allowedOrigins = [
@@ -63,7 +65,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// OPTIONS preflight
+
 app.options('*', cors());
 
 // Security
@@ -93,11 +95,11 @@ app.use('/api/', (req, res, next) => {
   limiter(req, res, next);
 });
 
-// Body parsing
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Static files
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads"), {
   setHeaders: (res, filePath) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -117,17 +119,17 @@ app.use("/uploads/profiles", express.static(path.join(__dirname, "uploads/profil
   }
 }));
 
-app.use(express.json({ limit: '10mb' }));  // Parses JSON bodies
-app.use(express.urlencoded({ extended: true }));  // Parses form data
+app.use(express.json({ limit: '10mb' }));  
+app.use(express.urlencoded({ extended: true })); 
 
-// Init dirs
+
 ensureDirectories();
 
-// Health & root
+
 app.get("/health", (req, res) => res.json({ status: "OK", timestamp: new Date().toISOString() }));
 app.get("/", (req, res) => res.json({ message: "🚀 Profile + Images Ready!" }));
 
-// Routes
+
 app.use("/api/auth", authRoutes);
 app.use("/api/code", codeRoutes);
 app.use("/api/projects", projectRoutes);
@@ -146,28 +148,23 @@ app.use("/api/predict", predictRoutes);
 
 
 
-
-
-
-// 404
 app.use("*", (req, res) => res.status(404).json({ error: "Route not found" }));
 
-// Error handler
+
 app.use((err, req, res, next) => {
   console.error("🔥 Server Error:", err.stack);
   res.status(500).json({ error: "Server error" });
 });
 
 
-// ✅ Socket.IO on the same server that listens on 5000
 const io = require("socket.io")(server, {
   cors: {
     origin: ["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173"],
     methods: ["GET", "POST"],
     credentials: true
   },
-  transports: ['websocket', 'polling'],  // ✅ Explicit transports
-  allowEIO3: true  // ✅ Allow older Engine.IO v3 clients
+  transports: ['websocket', 'polling'],  
+  allowEIO3: true  
 });
 
 global.io = io; 
@@ -180,7 +177,7 @@ io.on("connection", (socket) => {
     socket.join(userId);
   });
 
-  // 🔥 COMMENT ROOM JOIN
+  // COMMENT ROOM JOIN
 socket.on("join_submission", (submissionId) => {
   socket.join(`submission_${submissionId}`);
   console.log("Joined submission room:", submissionId);
@@ -201,7 +198,7 @@ socket.on("join_submission", (submissionId) => {
     socket.to(receiverId).emit("newMessage", {
       message,
       conversationId,
-      sender_id: socket.userId, // you can set this via auth middleware if you want
+      sender_id: socket.userId, 
       is_read: false,
     });
   });

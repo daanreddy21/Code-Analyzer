@@ -4,6 +4,10 @@ import API from "../services/api";
 import { io } from "socket.io-client";
 import EmojiPicker from "emoji-picker-react";
 import { useTheme } from "../context/ThemeContext";
+import AdminProfile from "./AdminProfile";
+import AdminStudentProgress from "./AdminStudentProgress";
+import ChatPage from "./ChatPage";
+import { useLocation } from "react-router-dom";
 
 function AdminDashboard() {
   const navigate = useNavigate();
@@ -21,6 +25,7 @@ function AdminDashboard() {
   const [rejectReasons, setRejectReasons] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("newest");
+  
 
   const socket = React.useMemo(() => io("http://localhost:5000"), []);
 
@@ -32,6 +37,29 @@ function AdminDashboard() {
 
   const codeViewerRef = useRef(null);
   const scrollTimeout = useRef(null);
+
+  const location = useLocation();
+
+  const segments = location.pathname.split("/").filter(Boolean);
+
+
+  const subPath = segments.slice(1);
+
+
+  const last = subPath[subPath.length - 1] || "dashboard";
+
+  const renderPage = () => {
+  switch (last) {
+    case "profile":
+      return <AdminProfile />;
+    case "students":
+      return <AdminStudentProgress />;
+    case "chat":
+      return <ChatPage />;
+    default:
+      return null;
+  }
+};
 
   const onEmojiClick = (emojiData) => {
     setNewComment((prev) => prev + emojiData.emoji);
@@ -349,7 +377,9 @@ const sortedSubmissions = [...filteredSubmissions].sort((a, b) => {
 
   return (
     <div style={containerStyle}>
-      {/* Header */}
+       {last === "dashboard" && (
+    <>
+      
       <div style={{ maxWidth: "1300px", margin: "0 auto 30px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "20px" }}>
           <div>
@@ -790,7 +820,13 @@ const sortedSubmissions = [...filteredSubmissions].sort((a, b) => {
               100% { background-position: 200% 50%; }
             }
       `}</style>
-    </div>
+        </>
+  )}
+
+  {/* ✅ DEEP ROUTES */}
+  {last !== "dashboard" && renderPage()}
+
+</div>
   );
 }
 

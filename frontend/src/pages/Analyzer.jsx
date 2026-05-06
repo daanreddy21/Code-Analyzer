@@ -12,13 +12,13 @@ function Analyzer() {
   const [fileCode, setFileCode] = useState("");
   const [fileName, setFileName] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [activeTab, setActiveTab] = useState("paste"); // 'paste' or 'upload'
+  const [activeTab, setActiveTab] = useState("paste"); 
   const [analysisResult, setAnalysisResult] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
 
-  // ✅ USE THEME FROM CONTEXT
+  
   const { themeColors, theme } = useTheme();
-  // 🔥 ADVANCED MULTI-LANGUAGE ANALYZER
+  
 const analyzeCodeLocally = (code, language) => {
   let score = 100;
   let issues = [];

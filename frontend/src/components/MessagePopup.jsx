@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { 
   FaBell, 
   FaTimes, 
@@ -9,13 +10,20 @@ import {
 } from "react-icons/fa";
 import API from "../services/api";
 import { useTheme } from "../context/ThemeContext";
+import pageFullInfo from "../utils/pageFullInfo";
 
 function MessagePopup({ isOpen, onClose, onMarkRead, showCustomInfo }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [groupedMessages, setGroupedMessages] = useState({});
+  const [hasMounted, setHasMounted] = useState(false);
+  const location = useLocation();
+
+useEffect(() => {
+  setHasMounted(true);
+}, []);
   
-  // ✅ USE THEME FROM CONTEXT
+  
   const { themeColors, theme } = useTheme();
 
   useEffect(() => {
@@ -25,42 +33,27 @@ function MessagePopup({ isOpen, onClose, onMarkRead, showCustomInfo }) {
   }, [isOpen]);
    
 useEffect(() => {
-  if (isOpen && showCustomInfo) {
-    const key = "visited_notifications";
-    const visited = localStorage.getItem(key);
+  if (!isOpen || !showCustomInfo) return;
 
-    if (!visited) {
-      const timer = setTimeout(() => {
-        showCustomInfo({
-          title: "Notifications Panel",
-          description:
-            "This panel shows all your notifications and system updates in real-time.",
-          sections: [
-            {
-              name: "Real-time Updates",
-              details:
-                "Notifications are received instantly using socket connection."
-            },
-            {
-              name: "Unread Messages",
-              details:
-                "Displays notifications you haven’t seen yet."
-            },
-            {
-              name: "Mark as Read",
-              details:
-                "Allows you to clear notifications after viewing."
-            }
-          ]
-        });
+  const key = "visited_notifications";
+  const visited = localStorage.getItem(key);
 
-        localStorage.setItem(key, "true");
-      }, 300); // 🔥 delay fixes overlap
+  if (visited) return;
 
-      return () => clearTimeout(timer);
-    }
-  }
-}, [isOpen, showCustomInfo]);
+  const segments = location.pathname.split("/").filter(Boolean);
+  const last = "/" + segments[segments.length - 1];
+
+  const pageData = pageFullInfo[last];
+
+  if (!pageData) return;
+
+  const timer = setTimeout(() => {
+    showCustomInfo(pageData);
+    localStorage.setItem(key, "true");
+  }, 800);
+
+  return () => clearTimeout(timer);
+}, [isOpen, location.pathname, showCustomInfo]);
 
   const fetchMessages = async () => {
     try {

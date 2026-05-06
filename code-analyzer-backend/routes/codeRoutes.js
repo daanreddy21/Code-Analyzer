@@ -14,7 +14,7 @@ const compilerLimiter = rateLimit({
   message: "Too many compiler requests, slow down!",
 });
 
-// 🔥 1. STATIC ROUTES FIRST
+//   STATIC ROUTES FIRST
 router.get("/stats", authMiddleware, codeController.getDashboardStats);
 router.get("/recent", authMiddleware, codeController.getRecentScans);
 router.get("/history", authMiddleware, codeController.getHistory);
@@ -23,13 +23,13 @@ router.get("/recurring-issues", authMiddleware, codeController.getRecurringIssue
 router.get("/ai-suggestions", authMiddleware, codeController.getAISuggestions);
 router.get("/codes", authMiddleware, getCodes);
 
-// 🔥 2. UPLOAD & SAVE ROUTES
+//  UPLOAD & SAVE ROUTES
 router.post("/paste", authMiddleware, codeController.pasteCode);
 router.post("/upload", authMiddleware, codeController.uploadFile);
 router.post("/run", compilerLimiter, (req, res) => { res.json({ message: "Compiler run endpoint" }); });
 router.post("/save", authMiddleware, saveCode);  // Compiler save
 
-// 🔥 3. SPECIFIC ROUTES (before :id)
+// . SPECIFIC ROUTES (before :id)
 router.get("/analyze/:id", authMiddleware, codeController.analyzeCode);
 router.post("/live-analysis", authMiddleware, liveAnalysisController.liveAnalysis);
 router.get("/timeline/:id", authMiddleware, codeController.getFileAnalysisTimeline);
@@ -42,16 +42,16 @@ router.get("/deleted", authMiddleware, codeController.getDeletedCodes);
 router.post("/deleted/:original_id/undo", authMiddleware, codeController.undoDelete);
 
 router.put("/pin/:id", authMiddleware, codeController.togglePin);
-// 🔥 4. COMPILER UPDATE FIRST (CRITICAL!)
-// 🔥 4. UPDATE
+
+//   UPDATE
 router.put("/:id", authMiddleware, codeController.updateCode);
 
 
 
-// 🔥 5. DELETE
+//   DELETE
 router.delete("/:id", authMiddleware, codeController.softDeleteCode);
 
-// 🔥 6. GENERIC GET (ALWAYS LAST)
+
 router.get("/:id", authMiddleware, codeController.getCodeById);
 
 module.exports = router;

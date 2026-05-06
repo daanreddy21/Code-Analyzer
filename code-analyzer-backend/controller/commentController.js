@@ -28,17 +28,17 @@ const submission = await pool.query(
 const fileName = submission.rows[0]?.file_name || "Unknown File";
 const ownerId = submission.rows[0]?.user_id;
 
-// 🔥 STEP 2: CHECK ROLE
+
 if (role === "admin") {
 
-  // 👑 ADMIN → notify USER
+  
   await pool.query(
     `INSERT INTO notifications 
      (admin_id, user_id, title, message, type, code_submission_id, is_read)
      VALUES ($1, $2, $3, $4, $5, $6, false)`,
     [
-      userId,             // admin_id
-      ownerId,            // user_id
+      userId,             
+      ownerId,            
       "💬 Admin Comment",
       `Admin commented on "${fileName}"`,
       "comment",

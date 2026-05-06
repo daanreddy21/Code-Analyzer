@@ -1,8 +1,6 @@
 const pool = require("../config/db");
 
-// =============================
-// 🔔 GET NOTIFICATIONS (USER + ADMIN)
-// =============================
+
 exports.getUserNotifications = async (req, res) => {
   try {
     const userId = req.userId;
@@ -57,9 +55,6 @@ if (role === "admin") {
 };
 
 
-// =============================
-// ✅ MARK AS READ
-// =============================
 exports.markAsRead = async (req, res) => {
   try {
     const { id } = req.params;
@@ -76,9 +71,7 @@ exports.markAsRead = async (req, res) => {
 };
 
 
-// =============================
-// ❌ DELETE
-// =============================
+
 exports.deleteNotification = async (req, res) => {
   try {
     const { id } = req.params;
@@ -95,9 +88,6 @@ exports.deleteNotification = async (req, res) => {
 };
 
 
-// =============================
-// 🔢 USER UNREAD
-// =============================
 exports.getUserUnread = async (req, res) => {
   const userId = req.userId;
 
@@ -111,9 +101,7 @@ exports.getUserUnread = async (req, res) => {
 };
 
 
-// =============================
-// 👑 ADMIN UNREAD
-// =============================
+
 exports.getAdminUnread = async (req, res) => {
   try {
     const result = await pool.query(
@@ -129,9 +117,7 @@ exports.getAdminUnread = async (req, res) => {
 };
 
 
-// =============================
-// 🔔 CREATE ADMIN → USER
-// =============================
+
 exports.createAdminNotification = async (req, res) => {
   try {
     const adminId = req.userId;
@@ -152,9 +138,6 @@ exports.createAdminNotification = async (req, res) => {
 };
 
 
-// =============================
-// 🔔 SYSTEM → ADMIN
-// =============================
 exports.createSystemNotification = async ({
   title,
   message,
@@ -169,7 +152,7 @@ exports.createSystemNotification = async ({
       [title, message, type, submissionId]
     );
 
-    // 🔥 REALTIME PUSH
+    // REALTIME PUSH
     if (global.io) {
       global.io.emit("newNotification");
     }

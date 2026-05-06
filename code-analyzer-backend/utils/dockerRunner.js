@@ -4,7 +4,7 @@ exports.runInDocker = (dir, language, input) => {
   return new Promise((resolve) => {
     let args;
 
-    // ✅ FIXED: DOUBLE PIPE FOR ALL MODES - Java Scanner gets BOTH numbers!
+    
     if (language === "java") {
       args = [
         "run", "--rm", 
@@ -12,7 +12,7 @@ exports.runInDocker = (dir, language, input) => {
         "-v", `${dir}:/app`, "-w", "/app",
         "eclipse-temurin:17-jdk",
         "sh", "-c",
-        // ✅ CRITICAL: Pipe input TWICE (compile + run)
+       
         `(echo "${input}" && javac Main.java) && echo "${input}" | java Main`
       ];
     } else if (language === "python") {
@@ -56,7 +56,7 @@ exports.runInDocker = (dir, language, input) => {
 
       resolve({
         status,
-        input,  // Pass input back
+        input,  
         expected: "", 
         output: finalOutput,
         executionTime: execTime

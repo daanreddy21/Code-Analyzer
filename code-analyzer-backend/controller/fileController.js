@@ -1,14 +1,12 @@
 const pool = require("../config/db");
 
-// 🔐 TEMP USER (replace with req.user.id after auth)
+
 const getUserId = (req) => {
-  return req.userId;  // Now from JWT, no fallback
+  return req.userId;
 };
 
 
-/**
- * 📌 Upload File (ONLY LOGGED-IN USER)
- */
+
 exports.uploadFile = async (req, res) => {
   try {
     const file = req.file;
@@ -34,9 +32,7 @@ exports.uploadFile = async (req, res) => {
   }
 };
 
-/**
- * 📌 Get Files (ONLY USER FILES)
- */
+
 exports.getFiles = async (req, res) => {
   try {
     let { language = "", page = 1 } = req.query;
@@ -65,9 +61,7 @@ exports.getFiles = async (req, res) => {
   }
 };
 
-/**
- * 📌 Get File by ID (ONLY OWN FILE)
- */
+
 exports.getFileById = async (req, res) => {
   try {
     const userId = getUserId(req);
@@ -89,9 +83,7 @@ exports.getFileById = async (req, res) => {
   }
 };
 
-/**
- * 📌 Update Code (ONLY OWN FILE)
- */
+
 exports.updateFile = async (req, res) => {
   try {
     const { code } = req.body;

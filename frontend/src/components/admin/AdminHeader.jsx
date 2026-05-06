@@ -1,12 +1,28 @@
 import React, { useState } from "react";
 import { useTheme } from "../../context/ThemeContext";
-import MessagePopup from "../MessagePopup"; // ✅ USE SAME USER POPUP
+import MessagePopup from "../MessagePopup"; 
+import { useLocation } from "react-router-dom";
 
 function AdminHeader({ navigate, chatUnread, notifUnread }) {
 
   const { theme, toggleTheme, themeColors } = useTheme();
 
   const [showNotifications, setShowNotifications] = useState(false);
+
+  const location = useLocation();
+
+const goDeep = (path) => {
+  const clean = path.replace(/^\/+/, "");
+  const segments = location.pathname.split("/").filter(Boolean);
+
+  if (segments.includes(clean)) {
+    const index = segments.indexOf(clean);
+    const newPath = "/" + segments.slice(0, index + 1).join("/");
+    navigate(newPath);
+  } else {
+    navigate(`${location.pathname}/${clean}`);
+  }
+};
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -78,7 +94,7 @@ function AdminHeader({ navigate, chatUnread, notifUnread }) {
             {/* 💬 CHAT */}
             <div style={{ position: "relative" }}>
               <button
-                onClick={() => navigate("/chat")}
+                onClick={() => goDeep("chat")}
                 style={buttonStyle(themeColors)}
               >
                 💬 Chat-M
@@ -91,7 +107,7 @@ function AdminHeader({ navigate, chatUnread, notifUnread }) {
               )}
             </div>
 
-            {/* 🔔 NOTIFICATIONS */}
+            {/* NOTIFICATIONS */}
             <div style={{ position: "relative" }}>
               <button
                 onClick={() => setShowNotifications(true)}
@@ -109,7 +125,7 @@ function AdminHeader({ navigate, chatUnread, notifUnread }) {
 
             {/* 👨‍🎓 STUDENTS */}
             <button
-              onClick={() => navigate("/admin/students")}
+              onClick={() => goDeep("students")}
               style={buttonStyle(themeColors)}
             >
               👨‍🎓 Students
@@ -117,7 +133,7 @@ function AdminHeader({ navigate, chatUnread, notifUnread }) {
 
             {/* 👤 PROFILE */}
             <button
-              onClick={() => navigate("/admin/profile")}
+              onClick={() => goDeep("profile")}
               style={buttonStyle(themeColors)}
             >
               👤 Profile

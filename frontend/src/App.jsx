@@ -67,17 +67,14 @@ function LayoutWrapper() {
   return (
     <Layout navigate={navigate}>
       <Routes>
-        <Route path="dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="analyzer" element={<ProtectedRoute><Analyzer /></ProtectedRoute>} />
-        <Route path="history" element={<ProtectedRoute><History /></ProtectedRoute>} />
-        <Route path="compare" element={<ProtectedRoute><CodeCompare /></ProtectedRoute>} />
-        <Route path="files" element={<ProtectedRoute><FileList /></ProtectedRoute>} />
-        <Route path="explain" element={<ProtectedRoute><ExplainPage /></ProtectedRoute>} />
-        <Route path="code-runner" element={<ProtectedRoute><CodeRunnerPage /></ProtectedRoute>} />
-        <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-
-        {/* ✅ UPDATED CHAT ROUTE */}
-        <Route path="chat/user" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+<Route
+          path="dashboard/*"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
 
         <Route path="saved-codes" element={<ProtectedRoute><SavedCodesPage /></ProtectedRoute>} />
         <Route path="share/:token" element={<SharePage />} />
@@ -87,17 +84,16 @@ function LayoutWrapper() {
 }
 
 
-// 🔥 ADMIN LAYOUT
+
 function AdminWrapper() {
   return (
     <AdminLayout>
       <Routes>
-        <Route index element={<AdminDashboard />} />
-        <Route path="profile" element={<AdminProfile />} />
-        <Route path="students" element={<AdminStudentProgress />} />
+        <Route path="*" element={<AdminDashboard />} />
+        
 
-        {/* ✅ ADMIN CHAT */}
-        <Route path="chat" element={<ChatPage />} />
+        
+        
       </Routes>
     </AdminLayout>
   );

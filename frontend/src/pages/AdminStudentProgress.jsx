@@ -205,7 +205,7 @@ function AdminStudentProgress() {
       <div style={mainContentStyle}>
         <h2 style={titleStyle}>📊 Student Progress</h2>
 
-        {/* LOADING */}
+        
         {loading && (
           <div style={loadingStyle}>
             <div style={{ 
@@ -221,7 +221,7 @@ function AdminStudentProgress() {
           </div>
         )}
 
-        {/* EMPTY */}
+        
         {!loading && users.length === 0 && (
           <div style={emptyStateStyle}>
             <div style={emptyIconStyle}>📭</div>
@@ -232,7 +232,7 @@ function AdminStudentProgress() {
           </div>
         )}
 
-        {/* USERS */}
+       
         {!loading && users.map(user => {
           const stats = userStats[user.id] || {};
           const graphData = userGraphs[user.id];
@@ -265,7 +265,7 @@ function AdminStudentProgress() {
                 <div style={expandIconStyle}>{isOpen ? "▲" : "▼"}</div>
               </div>
 
-              {/* EXPANDED CONTENT */}
+              
               {isOpen && (
                 <div style={expandedContentStyle}>
                   {/* STATS CARDS */}
@@ -293,12 +293,12 @@ function AdminStudentProgress() {
                     />
                   </div>
 
-                  {/* BADGES */}
+                  
                   <div style={badgesContainerStyle}>
                     {user.badges?.length > 0 ? (
                       user.badges.map((b, i) => (
                         <span key={i} style={badgeStyle}>
-                          🏆 {b}
+                          {b}
                         </span>
                       ))
                     ) : (
@@ -308,7 +308,7 @@ function AdminStudentProgress() {
                     )}
                   </div>
 
-                  {/* GRAPH */}
+                  
                   <div style={graphContainerStyle}>
                     {!graphData ? (
                       <div style={{ textAlign: "center", padding: "40px", color: themeColors.textSecondary }}>

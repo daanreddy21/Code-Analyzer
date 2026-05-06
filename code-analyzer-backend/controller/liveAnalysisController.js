@@ -16,12 +16,10 @@ exports.liveAnalysis = async (req, res) => {
 
       const newLine = part.value.trim();
 
-      // =========================
-      // 🔁 LOOP CASES
-      // =========================
+   
       if (/for\s*\(|while\s*\(/.test(newLine)) {
 
-        // LOOP MODIFICATION
+
         if (/<=/.test(newLine)) {
           analysis.push({
             type: "Loop Modification",
@@ -39,7 +37,7 @@ exports.liveAnalysis = async (req, res) => {
           });
         }
 
-        // INFINITE LOOP
+
         if (/while\s*\(\s*true\s*\)/.test(newLine)) {
           analysis.push({
             type: "Infinite Loop",
@@ -57,7 +55,7 @@ exports.liveAnalysis = async (req, res) => {
           });
         }
 
-        // LOOP UPDATE MISSING
+
         if (/for\s*\(.*;.*;.*\)/.test(newLine) && !/i\+\+|--/.test(newLine)) {
           analysis.push({
             type: "Loop Update Missing",
@@ -75,9 +73,7 @@ exports.liveAnalysis = async (req, res) => {
         }
       }
 
-      // =========================
-      // ❗ CONDITION CASES
-      // =========================
+
       if (/if\s*\(/.test(newLine)) {
 
         if (/==/.test(newLine) && !/===/.test(newLine)) {
@@ -112,9 +108,7 @@ exports.liveAnalysis = async (req, res) => {
         }
       }
 
-      // =========================
-      // 📦 ARRAY CASES
-      // =========================
+
       if (/arr\[.*\+.*\]/.test(newLine)) {
         analysis.push({
           type: "Array Index Shift",
@@ -147,9 +141,7 @@ exports.liveAnalysis = async (req, res) => {
         });
       }
 
-      // =========================
-      // 🔤 STRING CASES
-      // =========================
+
       if (/\.size/.test(newLine)) {
         analysis.push({
           type: "Invalid String Property",
@@ -166,9 +158,7 @@ exports.liveAnalysis = async (req, res) => {
         });
       }
 
-      // =========================
-      // 🧮 DIVISION
-      // =========================
+
       if (/\/\s*0/.test(newLine)) {
         analysis.push({
           type: "Division by Zero",
@@ -185,9 +175,7 @@ exports.liveAnalysis = async (req, res) => {
         });
       }
 
-      // =========================
-      // ⚙️ FUNCTION CASES
-      // =========================
+
       if (/\w+\(.*\)/.test(newLine) && /,\s*\)/.test(newLine)) {
         analysis.push({
           type: "Function Argument Issue",
@@ -204,9 +192,6 @@ exports.liveAnalysis = async (req, res) => {
         });
       }
 
-      // =========================
-      // 🔐 SECURITY
-      // =========================
       if (/eval\s*\(/.test(newLine)) {
         analysis.push({
           type: "Code Injection Risk",
@@ -239,9 +224,7 @@ exports.liveAnalysis = async (req, res) => {
         });
       }
 
-      // =========================
-      // 🧠 NULL SAFETY
-      // =========================
+
       if (/null|undefined/.test(newLine)) {
         analysis.push({
           type: "Null Safety Issue",
@@ -258,9 +241,7 @@ exports.liveAnalysis = async (req, res) => {
         });
       }
 
-      // =========================
-      // ⚡ ASYNC
-      // =========================
+
       if (/await/.test(newLine) && !/async/.test(oldCode)) {
         analysis.push({
           type: "Async Misuse",

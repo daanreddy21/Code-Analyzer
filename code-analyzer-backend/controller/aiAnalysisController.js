@@ -62,7 +62,6 @@ ${newCode}
 
     let content = response.data.choices[0].message.content;
 
-    // 🔥 SAFE JSON PARSE
     let parsed;
     try {
       parsed = JSON.parse(content);

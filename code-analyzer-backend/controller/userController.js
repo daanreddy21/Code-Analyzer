@@ -5,7 +5,7 @@ const path = require("path");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt"); // ✅ added bcrypt
 
-// --- MULTER FOR PROFILE IMAGES ---
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/profiles/");
@@ -28,7 +28,7 @@ const upload = multer({
   },
 });
 
-// 🔹 Get Profile (no retry loop, no email_notifications)
+
 exports.getProfile = async (req, res) => {
   try {
     console.log("getProfile: req.userId =", req.userId);
@@ -56,7 +56,7 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-// 🔹 Update Profile (unchanged)
+
 exports.updateProfile = async (req, res) => {
   try {
     const userId = req.userId;
@@ -135,7 +135,7 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-// 🔥 NEW: Update Settings (PATCH /user/settings)
+
 exports.updateSettings = async (req, res) => {
   try {
     const userId = req.userId;
@@ -184,7 +184,7 @@ exports.updateSettings = async (req, res) => {
   }
 };
 
-// 🔥 NEW: Password Reset Token (POST /user/password/reset)
+
 exports.resetPassword = async (req, res) => {
   try {
     const userId = req.userId;
@@ -213,7 +213,7 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-// 🔥 NEW: Complete Password Reset (POST /user/password/complete-reset) – FIXED
+
 exports.completePasswordReset = async (req, res) => {
   try {
     const userId = req.userId;
@@ -227,7 +227,7 @@ exports.completePasswordReset = async (req, res) => {
       return res.status(400).json({ error: "Password must be 6+ characters" });
     }
 
-    // ✅ CORRECT: hash the new password with bcrypt
+   
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     await pool.query(
@@ -242,5 +242,5 @@ exports.completePasswordReset = async (req, res) => {
   }
 };
 
-// Export multer
+
 exports.upload = upload;

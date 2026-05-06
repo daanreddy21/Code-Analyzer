@@ -1,4 +1,4 @@
-// controller/userSettings.js (or in your user controller file)
+
 const pool = require("../config/db");
 
 exports.updateUserSettings = async (req, res) => {

@@ -39,7 +39,6 @@ FORMAT:
 💡 Suggestions:
 ...
 `;
-
     const response = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
@@ -56,7 +55,6 @@ FORMAT:
         }
       }
     );
-
     const prediction =
       response.data?.choices?.[0]?.message?.content ||
       "⚠️ No prediction available";
@@ -68,3 +66,4 @@ FORMAT:
     res.status(500).json({ error: "Prediction failed" });
   }
 };
+

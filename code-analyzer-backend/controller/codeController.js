@@ -111,7 +111,7 @@ exports.pasteCode = async (req, res) => {
 
 
 // --- UPLOAD FILE (from Analyzer.jsx) ---
-// ✅ This is the key route that receives your FormData
+
 exports.uploadFile = [
   upload.single("file"), // Multer expects field name: "file"
   async (req, res) => {
@@ -240,7 +240,6 @@ exports.getCodeById = async (req, res) => {
 
 
 // --- UPDATE CODE ---
-// --- UPDATE CODE & RESUBMIT ---
 exports.updateCode = async (req, res) => {
   try {
     const { id } = req.params;
@@ -251,7 +250,7 @@ exports.updateCode = async (req, res) => {
       return res.status(400).json({ error: "Code content is too short or empty" });
     }
 
-    // 🔥 STEP 0: GET EXISTING DATA (VERY IMPORTANT)
+    
     const existing = await pool.query(
       "SELECT * FROM code_submissions WHERE id = $1 AND user_id = $2",
       [id, user_id]
@@ -263,7 +262,7 @@ exports.updateCode = async (req, res) => {
 
     const oldData = existing.rows[0];
 
-    // 🔥 STEP 1: SAVE OLD VERSION (NEW LOGIC)
+    
     await pool.query(`
       INSERT INTO code_versions
       (submission_id, user_id, file_name, code, language, version)
@@ -277,9 +276,9 @@ exports.updateCode = async (req, res) => {
       oldData.version || 1
     ]);
 
-    // ================= YOUR EXISTING LOGIC (UNCHANGED) =================
+    
 
-    // 1. Recalculate basic metrics
+   
     const lines = code.split("\n").filter((l) => l.trim()).length;
     const functions = (code.match(
       /function\s+\w+|async\s+\w+\s*\(|def\s+\w+|public\s+\w+\s*\(|private\s+\w+\s*\(|protected\s+\w+\s*\(/gi
@@ -291,7 +290,7 @@ exports.updateCode = async (req, res) => {
       complexity: Math.min(10, functions + (code.match(/if\s*\(/g) || []).length),
     };
 
-    // 2. Update Database (same as yours + version increment)
+  
     const result = await pool.query(
       `
       UPDATE code_submissions SET 
@@ -308,7 +307,7 @@ exports.updateCode = async (req, res) => {
     `,
       [language, code, file_name || null, JSON.stringify(metrics), id, user_id]
     );
-    // 🔔 ADMIN NOTIFICATION (RESUBMIT)
+
       const fileNameFinal = file_name || oldData.file_name;
 
       await pool.query(
@@ -323,7 +322,7 @@ exports.updateCode = async (req, res) => {
         ]
       );
 
-    // 🔥 SOCKET
+
 if (global.io) {
   global.io.emit("newNotification", {
     type: "resubmission",
@@ -344,8 +343,8 @@ if (global.io) {
 };
 
 
-// --- DELETE CODE ---
-// --- DELETE CODE ---
+
+
 exports.softDeleteCode = async (req, res) => {
   const client = await pool.connect();
   try {
@@ -410,7 +409,7 @@ exports.softDeleteCode = async (req, res) => {
   }
 };
 
-// ✅ 2. GET DELETED FILES
+
 exports.getDeletedCodes = async (req, res) => {
   try {
     // Get user's deleted files (authMiddleware sets req.user.id)
@@ -429,7 +428,7 @@ exports.getDeletedCodes = async (req, res) => {
   }
 };
 
-// ✅ 3. UNDO DELETE (restore)
+
 exports.undoDelete = async (req, res) => {
   const client = await pool.connect();
   try {
@@ -477,7 +476,7 @@ exports.undoDelete = async (req, res) => {
 
 
 
-// --- ANALYZE CODE FOR BUGS (UPDATED) ---
+
 exports.analyzeCode = async (req, res) => {
   try {
     const id = req.params.id;
@@ -899,7 +898,7 @@ ${issue.suggestion}`;
   }
 };
 
-// 🔥 PIN / UNPIN
+
 exports.togglePin = async (req, res) => {
   try {
     const id = req.params.id;
@@ -926,7 +925,7 @@ exports.togglePin = async (req, res) => {
   }
 };
 
-// 🔥 FILE-WISE TIMELINE
+
 exports.getFileAnalysisTimeline = async (req, res) => {
   try {
     const submissionId = req.params.id;
@@ -1012,7 +1011,7 @@ exports.getRecurringIssues = async (req, res) => {
   }
 };
 
-// --- AI SUGGESTIONS BASED ON HISTORY ---
+
 exports.getAISuggestions = async (req, res) => {
   try {
     const userId = req.userId;
@@ -1112,7 +1111,7 @@ exports.getAISuggestions = async (req, res) => {
   }
 };
 
-// --- DASHBOARD STATS ---
+
 exports.getDashboardStats = async (req, res) => {
   try {
     const userId = req.userId;
@@ -1143,7 +1142,7 @@ exports.getDashboardStats = async (req, res) => {
   }
 };
 
-// ✅ FIXED RECENT SCANS - Matches History exactly
+//  FIXED RECENT SCANS - Matches History exactly
 exports.getRecentScans = async (req, res) => {
   try {
     const userId = req.userId;
@@ -1175,7 +1174,7 @@ exports.getRecentScans = async (req, res) => {
 };
 
 
-// 📜 Get all versions in compare code
+//  Get all versions in compare code
 exports.getCodeVersions = async (req, res) => {
   try {
     const submission_id = parseInt(req.params.submission_id);  // 🔥 Convert to int
@@ -1197,7 +1196,7 @@ exports.getCodeVersions = async (req, res) => {
   }
 };
 
-// 📜 Get all versions in compare code (grouped)
+//  Get all versions in compare code (grouped)
 exports.getAllVersionsGrouped = async (req, res) => {
   try {
     const user_id = req.userId; // 🔥 VERY IMPORTANT
@@ -1236,10 +1235,10 @@ exports.getAllVersionsGrouped = async (req, res) => {
   }
 };
 
-// ================= SHARE LINK FEATURE =================
+//  SHARE LINK FEATURE
 const crypto = require("crypto");
 
-// 🔗 Generate Share Link
+//  Generate Share Link
 exports.generateShareLink = async (req, res) => {
   try {
     const { submission_id, type } = req.body;
@@ -1263,7 +1262,7 @@ exports.generateShareLink = async (req, res) => {
 };
 
 
-// 🔗 Access Shared Link
+//  Access Shared Link
 exports.getSharedData = async (req, res) => {
   try {
     const { token } = req.params;
@@ -1367,8 +1366,8 @@ exports.getSharedData = async (req, res) => {
 
 
 
-// At the BOTTOM of codeController.js
-// ✅ PUT module.exports HERE — AFTER all functions
+
+
 module.exports = {
   pasteCode: exports.pasteCode,
   uploadFile: exports.uploadFile,
